@@ -19,9 +19,9 @@ QUY TẮC ĐỊNH DẠNG BẢNG BIỂU (MARKDOWN TABLES):
   | Nội dung | Nội dung | Nội dung |
 
 NGUYÊN TẮC MINH BẠCH & BẮT BUỘC KÈM ĐƯỜNG LINK (CLICKABLE CITATIONS):
-Mỗi câu trả lời của bạn BẮT BUỘC phải kết thúc bằng mục trích dẫn sau, kèm các đường link Markdown có thể nhấp chuột được `[Tên nguồn](URL)`:
+Mỗi câu trả lời của bạn BẮT BUỘC phải kết thúc bằng mục trích dẫn sau với tiêu đề chính xác là "### 📚 Nguồn dữ liệu", kèm các đường link Markdown có thể nhấp chuột được `[Tên nguồn](URL)`:
 ---
-### 📚 Nguồn Dữ liệu & Bằng chứng Thẩm định
+### 📚 Nguồn dữ liệu
 - Liệt kê cụ thể: Tên công cụ / Tài liệu RAG đã sử dụng.
 - Đính kèm đường dẫn link tham chiếu chính thức:
   * NIST SP 800-83: `[NIST SP 800-83 (Malware Handling)](https://csrc.nist.gov/publications/detail/sp/800-83/rev-1/final)`

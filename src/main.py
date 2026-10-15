@@ -171,6 +171,23 @@ HTML_CHAT_UI = """
         setInterval(updateTelemetry, 5000);
         updateTelemetry();
 
+        // Configure marked.js to open all links in a new tab
+        const linkRenderer = {
+            link(hrefOrToken, title, text) {
+                let href = hrefOrToken;
+                let linkTitle = title;
+                let linkText = text;
+                if (typeof hrefOrToken === 'object' && hrefOrToken !== null) {
+                    href = hrefOrToken.href;
+                    linkTitle = hrefOrToken.title;
+                    linkText = hrefOrToken.text;
+                }
+                const titleAttr = linkTitle ? ` title="${linkTitle}"` : '';
+                return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+            }
+        };
+        marked.use({ renderer: linkRenderer });
+
         async function sendQuery() {
             const input = document.getElementById("query");
             const box = document.getElementById("chat-box");
@@ -240,6 +257,10 @@ HTML_CHAT_UI = """
                             const data = JSON.parse(evt.split("data: ")[1]);
                             fullAnswer += data.token;
                             bubble.innerHTML = marked.parse(fullAnswer);
+                            bubble.querySelectorAll('a').forEach(a => {
+                                a.setAttribute('target', '_blank');
+                                a.setAttribute('rel', 'noopener noreferrer');
+                            });
                             box.scrollTop = box.scrollHeight;
                         } else if (evt.includes("event: done")) {
                             statusText.innerText = "Hoàn tất thẩm định ✅";
@@ -251,6 +272,12 @@ HTML_CHAT_UI = """
                 // Syntax highlight code blocks
                 bubble.querySelectorAll('pre code').forEach((el) => {
                     hljs.highlightElement(el);
+                });
+
+                // Ensure all links open in a new tab
+                bubble.querySelectorAll('a').forEach(a => {
+                    a.setAttribute('target', '_blank');
+                    a.setAttribute('rel', 'noopener noreferrer');
                 });
 
                 // Append feedback buttons
