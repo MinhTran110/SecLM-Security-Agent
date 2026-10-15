@@ -9,3 +9,8 @@ def test_rag_search_cwe79():
     res = search_security_knowledge("CWE-79")
     assert res["status"] == "FOUND"
     assert "XSS" in res["results"][0]["name"]
+
+def test_rag_search_malware_hashes():
+    res = search_security_knowledge("mã băm")
+    assert res["status"] == "FOUND"
+    assert any("malware" in str(r.get("source", "")).lower() or "băm" in str(r).lower() for r in res["results"])

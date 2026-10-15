@@ -79,9 +79,22 @@ HTML_CHAT_UI = """
         /* Markdown styling inside Agent bubble */
         .agent-bubble pre { background: #0f172a; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 10px 0; border: 1px solid var(--border); }
         .agent-bubble code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.88em; }
-        .agent-bubble p { margin-bottom: 8px; }
-        .agent-bubble h3, .agent-bubble h4 { color: var(--accent); margin: 12px 0 6px 0; }
-        .agent-bubble ul, .agent-bubble ol { margin-left: 20px; margin-bottom: 8px; }
+        .agent-bubble p { margin-bottom: 10px; }
+        .agent-bubble h1, .agent-bubble h2, .agent-bubble h3, .agent-bubble h4 { color: var(--accent); margin: 16px 0 8px 0; }
+        .agent-bubble ul, .agent-bubble ol { margin-left: 22px; margin-bottom: 12px; }
+        .agent-bubble li { margin-bottom: 4px; }
+
+        /* Tables styling */
+        .agent-bubble table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9rem; background: rgba(15, 23, 42, 0.7); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+        .agent-bubble th { background: #1e293b; color: var(--accent); text-align: left; padding: 10px 14px; font-weight: 700; border-bottom: 2px solid var(--border); border-right: 1px solid rgba(255, 255, 255, 0.06); }
+        .agent-bubble td { padding: 10px 14px; border-bottom: 1px solid var(--border); border-right: 1px solid rgba(255, 255, 255, 0.06); color: #cbd5e1; }
+        .agent-bubble tr:last-child td { border-bottom: none; }
+        .agent-bubble tr:hover td { background: rgba(255, 255, 255, 0.03); }
+
+        /* Clickable links */
+        .agent-bubble a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+        .agent-bubble a:hover { color: #38bdf8; }
+        .agent-bubble blockquote { border-left: 3px solid var(--accent); padding-left: 12px; margin: 10px 0; color: #94a3b8; font-style: italic; }
 
         /* Quick Suggestions */
         .quick-tags { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
