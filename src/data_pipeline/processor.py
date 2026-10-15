@@ -2,8 +2,10 @@
 
 import json
 import uuid
+import hashlib
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
+
 
 from src.data_pipeline.loaders import load_document
 from src.data_pipeline.cleaner import process_and_sanitize
@@ -44,16 +46,29 @@ def process_documents(
     all_chunks: List[Dict[str, Any]] = []
     fine_tune_records: List[Dict[str, Any]] = []
     processed_files_summary = []
+    seen_file_hashes: Dict[str, str] = {}
+    seen_chunk_hashes: Set[str] = set()
+    duplicate_files_skipped = 0
+    duplicate_chunks_skipped = 0
 
     for file_path in all_files:
         doc = load_document(file_path)
-        if not doc:
+        if not doc or not doc.get("raw_content", "").strip():
             continue
+
+        # 1. Khử trùng lặp cấp độ Tệp tin (File Content Hash)
+        file_content = doc["raw_content"].strip()
+        file_hash = hashlib.sha256(file_content.encode("utf-8")).hexdigest()
+        if file_hash in seen_file_hashes:
+            duplicate_files_skipped += 1
+            print(f"  ⚠️ Bỏ qua tệp tin trùng lặp: '{file_path.name}' (nội dung giống 100% với '{seen_file_hashes[file_hash]}')")
+            continue
+        seen_file_hashes[file_hash] = file_path.name
 
         doc_id = f"doc_{file_path.stem.lower()}_{str(uuid.uuid4())[:8]}"
         clean_content, metadata = process_and_sanitize(doc["raw_content"])
 
-        # Create structured chunks for Vector DB
+        # 2. Khử trùng lặp cấp độ Đoạn (Chunk Content Hash)
         chunks = create_chunks_with_metadata(
             doc_id=doc_id,
             source_file=file_path.name,
@@ -62,7 +77,18 @@ def process_documents(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
         )
-        all_chunks.extend(chunks)
+
+        unique_chunks_for_file = []
+        for ch in chunks:
+            normalized_chunk = " ".join(ch["content"].split()).lower()
+            ch_hash = hashlib.md5(normalized_chunk.encode("utf-8")).hexdigest()
+            if ch_hash in seen_chunk_hashes:
+                duplicate_chunks_skipped += 1
+                continue
+            seen_chunk_hashes.add(ch_hash)
+            unique_chunks_for_file.append(ch)
+
+        all_chunks.extend(unique_chunks_for_file)
 
         # Generate Fine-Tuning conversation pair for this document
         cwe_label = metadata["cwe_ids"][0] if metadata["cwe_ids"] else metadata["category"]
@@ -86,7 +112,7 @@ def process_documents(
         processed_files_summary.append({
             "file_name": file_path.name,
             "file_type": doc["file_type"],
-            "chunks_count": len(chunks),
+            "chunks_count": len(unique_chunks_for_file),
             "detected_cves": metadata["cve_ids"],
             "detected_cwes": metadata["cwe_ids"],
             "category": metadata["category"],
@@ -108,6 +134,8 @@ def process_documents(
         "status": "SUCCESS",
         "total_files": len(processed_files_summary),
         "total_chunks": len(all_chunks),
+        "duplicate_files_skipped": duplicate_files_skipped,
+        "duplicate_chunks_skipped": duplicate_chunks_skipped,
         "rag_output": str(rag_output_file),
         "fine_tune_output": str(ft_output_file),
         "files": processed_files_summary,
@@ -126,6 +154,11 @@ if __name__ == "__main__":
     print(f"[SecLM Data Pipeline] Bắt đầu quét và xử lý tài liệu từ '{args.input}'...")
     result = process_documents(args.input, args.output, args.chunk_size, args.overlap)
     print(f"✅ Hoàn tất! Đã xử lý {result['total_files']} tệp tin, sinh ra {result['total_chunks']} chunks chuẩn Vector DB.")
+    if result.get("duplicate_files_skipped", 0) > 0:
+        print(f"🧹 Đã tự động loại bỏ {result['duplicate_files_skipped']} tệp tin trùng lặp.")
+    if result.get("duplicate_chunks_skipped", 0) > 0:
+        print(f"🧹 Đã lọc bỏ {result['duplicate_chunks_skipped']} chunks trùng lặp nội dung.")
     if "rag_output" in result:
         print(f"📦 File RAG: {result['rag_output']}")
         print(f"🎯 File Fine-tuning: {result['fine_tune_output']}")
+

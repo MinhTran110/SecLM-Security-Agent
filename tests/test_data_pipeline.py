@@ -91,3 +91,28 @@ def test_mitre_software_html_parser():
     assert data_row[2][0] == "Kiwi"
     assert "credential dumping" in data_row[3][0]
 
+
+def test_processor_deduplication(tmp_path):
+    """Verify data pipeline automatically skips duplicate files and identical chunks."""
+    raw_dir = tmp_path / "raw"
+    processed_dir = tmp_path / "processed"
+    raw_dir.mkdir()
+
+    content = "# Phân tích bảo mật\nNội dung hướng dẫn phòng chống SQL Injection chuẩn CWE-89."
+    file1 = raw_dir / "sqli_guide.md"
+    file2 = raw_dir / "sqli_guide_duplicate.md"
+    file1.write_text(content, encoding="utf-8")
+    file2.write_text(content, encoding="utf-8")
+
+    result = process_documents(
+        input_dir=str(raw_dir),
+        output_dir=str(processed_dir),
+        chunk_size=200,
+        chunk_overlap=40
+    )
+
+    assert result["status"] == "SUCCESS"
+    assert result["total_files"] == 1
+    assert result["duplicate_files_skipped"] == 1
+
+
