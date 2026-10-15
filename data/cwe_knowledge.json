@@ -1,0 +1,66 @@
+[
+  {
+    "cwe_id": "CWE-89",
+    "name": "SQL Injection (SQLi)",
+    "owasp": "A03:2021 - Injection",
+    "severity": "CRITICAL",
+    "description": "Đầu vào của người dùng được ghép nối trực tiếp vào câu lệnh SQL, cho phép kẻ tấn công can thiệp cấu trúc truy vấn, trích xuất dữ liệu, sửa đổi hoặc xóa bảng.",
+    "secure_pattern": "Bắt buộc dùng Parameterized Queries (Prepared Statements) hoặc ORM (SQLAlchemy, Prisma, Django ORM). Tuyệt đối không dùng f-string, format string hay phép cộng (+) để nối chuỗi vào SQL."
+  },
+  {
+    "cwe_id": "CWE-79",
+    "name": "Cross-site Scripting (XSS)",
+    "owasp": "A03:2021 - Injection",
+    "severity": "HIGH",
+    "description": "Ứng dụng chèn dữ liệu không đáng tin cậy vào trang web mà không escape hoặc kiểm duyệt hợp lệ, cho phép thực thi JavaScript độc hại trên trình duyệt của nạn nhân.",
+    "secure_pattern": "Sử dụng Context-aware Output Encoding, bật header Content Security Policy (CSP) nghiêm ngặt, sử dụng template engine tự động escape (như Jinja2 mặc định, React JSX) và thư viện DOMPurify."
+  },
+  {
+    "cwe_id": "CWE-78",
+    "name": "OS Command Injection",
+    "owasp": "A03:2021 - Injection",
+    "severity": "CRITICAL",
+    "description": "Ứng dụng xây dựng lệnh hệ điều hành sử dụng dữ liệu từ người dùng mà không trung hòa các ký tự điều khiển (;, &&, |), dẫn tới thực thi mã từ xa trên máy chủ.",
+    "secure_pattern": "Tránh gọi shell trực tiếp (os.system). Sử dụng subprocess.run() với danh sách tham số (args list) và luôn thiết lập shell=False."
+  },
+  {
+    "cwe_id": "CWE-918",
+    "name": "Server-Side Request Forgery (SSRF)",
+    "owasp": "A10:2021 - SSRF",
+    "severity": "HIGH",
+    "description": "Ứng dụng web tải tài nguyên từ URL do người dùng cung cấp mà không kiểm tra địa chỉ đích, dẫn tới bị lợi dụng để quét mạng nội bộ hoặc đọc cloud metadata (169.254.169.254).",
+    "secure_pattern": "Thiết lập Allowlist tên miền/URL được phép truy cập, phân giải DNS trước và chặn toàn bộ dải IP riêng nội bộ (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.169.254)."
+  },
+  {
+    "cwe_id": "CWE-502",
+    "name": "Deserialization of Untrusted Data",
+    "owasp": "A08:2021 - Software and Data Integrity Failures",
+    "severity": "CRITICAL",
+    "description": "Giải tuần tự hóa dữ liệu không tin cậy bằng các thư viện nhị phân (Python pickle, Java ObjectInputStream, PHP unserialize), cho phép kẻ tấn công điều khiển luồng thực thi và chạy mã tùy ý.",
+    "secure_pattern": "Không bao giờ deserialize dữ liệu không tin cậy bằng pickle. Chuyển sang dùng các định dạng dữ liệu an toàn như JSON hoặc Protocol Buffers (Protobuf) kèm xác thực Schema (Pydantic)."
+  },
+  {
+    "cwe_id": "CWE-798",
+    "name": "Use of Hard-coded Credentials",
+    "owasp": "A07:2021 - Identification and Authentication Failures",
+    "severity": "HIGH",
+    "description": "Mã nguồn hoặc cấu hình chứa trực tiếp mật khẩu, API key, Secret token dưới dạng văn bản thuần, dễ bị lộ lọt khi commit lên repository.",
+    "secure_pattern": "Lưu trữ khóa bí mật trong biến môi trường (.env), tích hợp Secret Manager chuyên dụng (HashiCorp Vault, AWS/GCP Secrets Manager), và dùng git-secrets hoặc trufflehog trong CI/CD pipeline."
+  },
+  {
+    "cwe_id": "CWE-22",
+    "name": "Improper Limitation of a Pathname ('Path Traversal')",
+    "owasp": "A01:2021 - Broken Access Control",
+    "severity": "HIGH",
+    "description": "Ứng dụng ghép đường dẫn tệp với đầu vào của người dùng mà không chuẩn hóa, cho phép sử dụng chuỗi '../' để đọc hoặc ghi các tệp tin hệ thống nhạy cảm (như /etc/passwd).",
+    "secure_pattern": "Chuẩn hóa đường dẫn bằng os.path.abspath() hoặc pathlib.Path().resolve() và kiểm tra đường dẫn kết quả bắt buộc phải nằm bên dưới thư mục gốc an toàn (base directory boundary check)."
+  },
+  {
+    "cwe_id": "CWE-287",
+    "name": "Improper Authentication",
+    "owasp": "A07:2021 - Identification and Authentication Failures",
+    "severity": "HIGH",
+    "description": "Cơ chế xác thực lỏng lẻo, cho phép kẻ tấn công mạo danh người dùng hợp pháp hoặc vượt qua bước đăng nhập.",
+    "secure_pattern": "Bắt buộc mã hóa mật khẩu bằng thuật toán adaptive hashing (bcrypt, argon2id), tích hợp Multi-Factor Authentication (MFA), và quản lý token phiên làm việc có thời hạn ngắn (JWT có exp)."
+  }
+]

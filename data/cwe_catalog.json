@@ -1,0 +1,44 @@
+[
+  {
+    "cwe_id": "CWE-89",
+    "name": "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+    "description": "The product constructs all or part of an SQL command using externally-influenced input from an upstream component, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended SQL command when it is sent to a downstream component.",
+    "severity": "CRITICAL",
+    "mitigation": "Use parameterized queries, prepared statements, and ORMs with safe query abstractions."
+  },
+  {
+    "cwe_id": "CWE-79",
+    "name": "Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')",
+    "description": "The product does not neutralize or incorrectly neutralizes user-controllable input before it is placed in output that is used as a web page that is served to other users.",
+    "severity": "HIGH",
+    "mitigation": "Context-aware output encoding, strict Content Security Policy (CSP), and automated template escaping."
+  },
+  {
+    "cwe_id": "CWE-78",
+    "name": "Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')",
+    "description": "The product constructs all or part of an OS command using externally-influenced input from an upstream component, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended OS command when it is sent to a downstream component.",
+    "severity": "CRITICAL",
+    "mitigation": "Avoid direct OS execution; use parameterized APIs such as subprocess with arguments list (shell=False)."
+  },
+  {
+    "cwe_id": "CWE-22",
+    "name": "Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')",
+    "description": "The product uses external input to construct a pathname that is intended to identify a file or directory that is located underneath a restricted parent directory, but the product does not properly neutralize special elements such as '..' sequences that can resolve to a location outside of the restricted directory.",
+    "severity": "HIGH",
+    "mitigation": "Normalize path names, check against a base directory boundary, and avoid using raw filenames from client inputs."
+  },
+  {
+    "cwe_id": "CWE-502",
+    "name": "Deserialization of Untrusted Data",
+    "description": "The product deserializes untrusted data without sufficiently verifying that the resulting data will be valid.",
+    "severity": "CRITICAL",
+    "mitigation": "Avoid language-specific object serialization formats (e.g. Python pickle, Java native serialization); use safe serialization formats like JSON."
+  },
+  {
+    "cwe_id": "CWE-287",
+    "name": "Improper Authentication",
+    "description": "When an actor claims to have a given identity, the product does not prove or insufficiently proves that the claim is correct.",
+    "severity": "HIGH",
+    "mitigation": "Implement robust multi-factor authentication, secure session tokens, and cryptographic signing."
+  }
+]

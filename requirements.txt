@@ -1,0 +1,29 @@
+# LLM Providers & Core SDK
+google-genai>=2.0.0
+
+# Web Framework & Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sse-starlette>=2.1.0
+
+# Configuration & Data Validation
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+
+# LLM & Agent Framework
+langgraph>=0.2.30
+langchain-core>=0.3.0
+langchain-google-genai>=2.0.0
+
+# Vector Database & Retrieval
+qdrant-client>=1.12.0
+rank-bm25>=0.2.2
+
+# Tool Integrations & Protocols
+httpx>=0.27.0
+redis>=5.1.0
+mcp>=1.0.0
+
+# Testing & Development
+pytest>=8.3.0
+pytest-asyncio>=0.24.0

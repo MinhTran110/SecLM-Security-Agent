@@ -1,0 +1,57 @@
+name: Security Agent CI/CD Quality Gate
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test-and-quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🔍 Compile & Syntax Check
+        run: |
+          python -m py_compile src/*.py src/**/*.py tests/*.py
+
+      - name: 🛡️ Run Automated Test Suite (Pytest)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'ci-mock-key' }}
+          ENVIRONMENT: "testing"
+        run: |
+          pytest -v --durations=10
+
+      - name: ⚖️ Verify Agent Evaluation Quality Gate
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'ci-mock-key' }}
+        run: |
+          python -c "
+          from src.evals.judge import SecurityAgentJudge
+          from src.tools.registry import registry
+          print('Governance tools registered:', len(registry.list_schemas()))
+          assert len(registry.list_schemas()) >= 3, 'Missing core security tools'
+          judge = SecurityAgentJudge()
+          res = judge.evaluate_rule_based('test query', [], 'test answer')
+          assert res.hallucination_detected is False, 'Quality Gate Failed: Hallucination detected!'
+          print('✅ Quality Gate Passed successfully!')
+          "
+
+      - name: 🐳 Verify Docker Build
+        run: |
+          docker build -t seclm-agent:ci .
