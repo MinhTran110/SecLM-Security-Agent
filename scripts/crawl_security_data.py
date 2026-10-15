@@ -41,6 +41,21 @@ GITHUB_ADVISORY_URL = "https://api.github.com/advisories?severity=critical&per_p
 MITRE_SOFTWARE_URL = "https://attack.mitre.org/software/"
 MITRE_STIX_URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
 
+# 5. PayloadsAllTheThings Top Vulnerability Guides (swisskyrepo)
+PAYLOADS_ALL_THE_THINGS = {
+    "payloads_sqli.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/SQL%20Injection/README.md",
+    "payloads_xss.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/XSS%20Injection/README.md",
+    "payloads_command_injection.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Command%20Injection/README.md",
+    "payloads_ssrf.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Server%20Side%20Request%20Forgery/README.md",
+    "payloads_insecure_deserialization.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Insecure%20Deserialization/README.md",
+    "payloads_directory_traversal.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Directory%20Traversal/README.md",
+    "payloads_jwt.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/JSON%20Web%20Token/README.md",
+    "payloads_file_inclusion.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/File%20Inclusion/README.md",
+    "payloads_graphql.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/GraphQL%20Injection/README.md",
+    "payloads_oauth.md": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/OAuth%20Misconfiguration/README.md",
+}
+
+
 
 
 class MitreSoftwareHTMLParser(HTMLParser):
@@ -299,14 +314,34 @@ def fetch_mitre_software():
         print(f"  👉 Bạn có thể nạp ngay vào RAG bằng lệnh: .venv/bin/python -m src.data_pipeline.processor")
 
 
+def fetch_payloads_all_the_things():
+    """Tải cẩm nang kỹ thuật khai thác & bypass WAF từ PayloadsAllTheThings (swisskyrepo)."""
+    print("\n[5/5] 💣 Đang tải cẩm nang kỹ thuật từ PayloadsAllTheThings (swisskyrepo)...")
+    headers = {"User-Agent": "SecLM-SecurityAgent-Crawler/1.0"}
+    success_count = 0
+    with httpx.Client(headers=headers, timeout=30.0, follow_redirects=True) as client:
+        for filename, url in PAYLOADS_ALL_THE_THINGS.items():
+            try:
+                print(f"  ↳ Tải: {filename}...")
+                resp = client.get(url)
+                if resp.status_code == 200:
+                    out_file = RAW_DIR / filename
+                    out_file.write_text(resp.text, encoding="utf-8")
+                    success_count += 1
+                else:
+                    print(f"    ⚠️ HTTP {resp.status_code} khi tải {url}")
+            except Exception as e:
+                print(f"    ❌ Lỗi kết nối {filename}: {str(e)}")
+    print(f"  ✅ Đã tải thành công {success_count}/{len(PAYLOADS_ALL_THE_THINGS)} tài liệu PayloadsAllTheThings.")
+
 
 def main():
     parser = argparse.ArgumentParser(description="SecLM Automated Security Knowledge Crawler")
     parser.add_argument(
         "--source",
-        choices=["all", "owasp", "cisa", "github", "mitre"],
+        choices=["all", "owasp", "cisa", "github", "mitre", "payloads"],
         default="all",
-        help="Nguồn dữ liệu muốn cào: all, owasp, cisa, github, mitre (mặc định: all)"
+        help="Nguồn dữ liệu muốn cào: all, owasp, cisa, github, mitre, payloads (mặc định: all)"
     )
     args = parser.parse_args()
 
@@ -323,6 +358,8 @@ def main():
         fetch_github_advisories()
     if args.source in ["all", "mitre"]:
         fetch_mitre_software()
+    if args.source in ["all", "payloads"]:
+        fetch_payloads_all_the_things()
 
     print("\n==================================================================")
     print("🎉 Hoàn tất cào dữ liệu! Hãy chạy lệnh sau để làm sạch và nạp vào RAG:")
@@ -332,4 +369,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
