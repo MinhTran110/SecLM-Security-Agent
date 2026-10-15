@@ -62,5 +62,13 @@
     "severity": "HIGH",
     "description": "Cơ chế xác thực lỏng lẻo, cho phép kẻ tấn công mạo danh người dùng hợp pháp hoặc vượt qua bước đăng nhập.",
     "secure_pattern": "Bắt buộc mã hóa mật khẩu bằng thuật toán adaptive hashing (bcrypt, argon2id), tích hợp Multi-Factor Authentication (MFA), và quản lý token phiên làm việc có thời hạn ngắn (JWT có exp)."
+  },
+  {
+    "cwe_id": "THREAT-INTEL",
+    "name": "Mã băm độc hại & Threat Intelligence Malware Hashes",
+    "owasp": "Threat Intelligence / Malware Analysis",
+    "severity": "CRITICAL",
+    "description": "Quản lý và đối soát mã băm tệp tin (MD5, SHA1, SHA256) với cơ sở dữ liệu mã độc (Malware Hashes). Nhận diện các dòng Ransomware và Trojan nguy hiểm như WannaCry, LockBit, Cobalt Strike.",
+    "secure_pattern": "Sử dụng VirusTotal API, MalwareBazaar để tra cứu mã băm IoC, kích hoạt EDR/XDR ngăn chặn thực thi tệp tin độc hại."
   }
 ]

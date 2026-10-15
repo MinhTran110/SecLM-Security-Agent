@@ -30,6 +30,10 @@ jobs:
         run: |
           python -m py_compile src/*.py src/**/*.py tests/*.py
 
+      - name: ⚙️ Run Data Pipeline Preprocessing
+        run: |
+          python -m src.data_pipeline.processor
+
       - name: 🛡️ Run Automated Test Suite (Pytest)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'ci-mock-key' }}
