@@ -65,3 +65,29 @@ Khắc phục: Nâng cấp Log4j >= 2.17.1.
     ft_file = Path(result["fine_tune_output"])
     assert rag_file.exists()
     assert ft_file.exists()
+
+
+def test_mitre_software_html_parser():
+    """Verify MitreSoftwareHTMLParser extracts software ID, name, and description from HTML table."""
+    from scripts.crawl_security_data import MitreSoftwareHTMLParser
+    html = """
+    <table>
+      <tr><th>ID</th><th>Name</th><th>Associated Software</th><th>Description</th></tr>
+      <tr>
+        <td><a href="/software/S0002/">S0002</a></td>
+        <td><a href="/software/S0002/">Mimikatz</a></td>
+        <td>Kiwi</td>
+        <td>Mimikatz is an open-source tool that performs credential dumping.</td>
+      </tr>
+    </table>
+    """
+    parser = MitreSoftwareHTMLParser()
+    parser.feed(html)
+    assert len(parser.rows) >= 2
+    data_row = parser.rows[1]
+    assert data_row[0][0] == "S0002"
+    assert "/software/S0002/" in data_row[0][1]
+    assert data_row[1][0] == "Mimikatz"
+    assert data_row[2][0] == "Kiwi"
+    assert "credential dumping" in data_row[3][0]
+
