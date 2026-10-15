@@ -98,20 +98,56 @@ class HTMLToMarkdownParser(HTMLParser):
         return cleaned
 
 
+MITRE_STIX_URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+
+
 def scrape_mitre(url: str, out_dir: Path):
-    """Cào chuyên dụng cho MITRE ATT&CK Software Catalog."""
-    print(f"🌐 Đang cào bảng danh mục MITRE ATT&CK từ: {url}")
+    """Cào chuyên dụng cho MITRE ATT&CK Software Catalog (Ưu tiên GitHub STIX, tự động fallback HTML)."""
+    import json
+    from scripts.crawl_security_data import parse_mitre_stix
+
+    # Cách 1: Thử GitHub STIX trước để tránh Cloudflare 503 WAF
+    print(f"🌐 [1/2] Đang kết nối tới kho dữ liệu STIX chính thức của MITRE CTI...")
+    try:
+        with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+            resp = client.get(MITRE_STIX_URL)
+            if resp.status_code == 200:
+                stix_data = resp.json()
+                software_list, md_lines = parse_mitre_stix(stix_data)
+
+                json_path = out_dir / "mitre_attack_software.json"
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(software_list, f, ensure_ascii=False, indent=2)
+
+                md_path = out_dir / "mitre_attack_software.md"
+                md_path.write_text("\n".join(md_lines), encoding="utf-8")
+
+                print(f"✅ Đã tải và trích xuất thành công {len(software_list)} mã độc & công cụ từ MITRE STIX!")
+                print(f"📂 Đã lưu JSON: {json_path}")
+                print(f"📂 Đã lưu Markdown: {md_path}")
+                return
+    except Exception as e:
+        print(f"⚠️ Không tải được qua STIX ({str(e)}), thử cào HTML trực tiếp...")
+
+    # Cách 2: Cào HTML trực tiếp
+    print(f"🌐 [2/2] Đang cào bảng danh mục MITRE ATT&CK từ web: {url}")
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
     with httpx.Client(headers=headers, timeout=30.0, follow_redirects=True) as client:
         resp = client.get(url)
+        if resp.status_code == 503:
+            print("⚠️ HTTP 503 Service Unavailable: Trang web attack.mitre.org bật Cloudflare WAF chống Bot Scraping tự động.")
+            # Kiểm tra dữ liệu local có sẵn
+            local_md = out_dir / "mitre_attack_software.md"
+            if local_md.exists():
+                print(f"💡 Đã có sẵn dữ liệu nội bộ tại {local_md}. Sẵn sàng nạp vào RAG!")
+                return
         resp.raise_for_status()
 
     parser = MitreSoftwareHTMLParser()
     parser.feed(resp.text)
 
-    import json
     software_list = []
     md_lines = [
         "# MITRE ATT&CK Software & Malware Knowledge Base",
@@ -163,6 +199,7 @@ def scrape_mitre(url: str, out_dir: Path):
     print(f"📂 Đã lưu Markdown: {md_path}")
 
 
+
 def scrape_article(url: str, out_file: Path):
     """Cào bài viết / advisory từ một link bất kỳ trên mạng và chuyển đổi sang Markdown."""
     print(f"🌐 Đang cào bài viết từ link: {url}")
@@ -208,10 +245,18 @@ def main():
     args = parser.parse_args()
 
     url = args.url.strip()
+
+    if "..." in url:
+        print("❌ Lỗi: URL chứa ký hiệu '...' (đây là ví dụ minh họa, không phải đường link thật).")
+        print("👉 Vui lòng dán một đường link bài viết thực tế trên mạng. Ví dụ:")
+        print("   .venv/bin/python scripts/scrape_webpage.py \"https://thehackernews.com/\" --out data/raw/hackernews_home.md")
+        sys.exit(1)
+
     is_mitre = "attack.mitre.org/software" in url.lower() or args.type == "mitre"
 
     raw_dir = Path("data/raw")
     raw_dir.mkdir(parents=True, exist_ok=True)
+
 
     try:
         if is_mitre:

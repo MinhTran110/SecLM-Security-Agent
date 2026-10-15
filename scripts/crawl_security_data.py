@@ -39,6 +39,8 @@ GITHUB_ADVISORY_URL = "https://api.github.com/advisories?severity=critical&per_p
 
 # 4. MITRE ATT&CK Software Catalog (Malware & Adversary Tools)
 MITRE_SOFTWARE_URL = "https://attack.mitre.org/software/"
+MITRE_STIX_URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+
 
 
 class MitreSoftwareHTMLParser(HTMLParser):
@@ -153,14 +155,92 @@ def fetch_github_advisories():
         print(f"  ❌ Lỗi tải GitHub Advisories: {str(e)}")
 
 
+def parse_mitre_stix(stix_data: dict):
+    """Trích xuất danh mục Malware và Tools từ định dạng chuẩn MITRE STIX 2.1."""
+    software_list = []
+    md_lines = [
+        "# MITRE ATT&CK Software & Malware Catalog",
+        "",
+        "> Nguồn chính thức: [MITRE ATT&CK Software](https://attack.mitre.org/software/)",
+        "> Phân loại: Danh mục phần mềm độc hại (Malware) và công cụ đối kháng (Adversary Tools) từ cơ sở dữ liệu MITRE STIX CTI.",
+        "",
+    ]
+    for obj in stix_data.get("objects", []):
+        if obj.get("type") in ["malware", "tool"] and not obj.get("revoked", False):
+            name = obj.get("name", "Unknown")
+            desc = obj.get("description", "").strip()
+            aliases = ", ".join(obj.get("x_mitre_aliases", [])) or "-"
+
+            software_id = None
+            url = None
+            for ref in obj.get("external_references", []):
+                if ref.get("source_name") == "mitre-attack":
+                    software_id = ref.get("external_id")
+                    url = ref.get("url")
+                    break
+
+            if not software_id:
+                continue
+
+            url = url or f"https://attack.mitre.org/software/{software_id}/"
+            item = {
+                "id": software_id,
+                "name": name,
+                "aliases": aliases,
+                "url": url,
+                "description": desc
+            }
+            software_list.append(item)
+
+            md_lines.append(f"## {software_id} - {name}")
+            md_lines.append(f"- **Mã định danh**: [{software_id}]({url})")
+            md_lines.append(f"- **Tên phần mềm**: {name}")
+            if aliases and aliases != "-":
+                md_lines.append(f"- **Tên gọi khác / Aliases**: {aliases}")
+            md_lines.append(f"- **Nguồn tham chiếu**: [{name} on MITRE ATT&CK]({url})")
+            md_lines.append(f"- **Mô tả hành vi**: {desc}")
+            md_lines.append("")
+
+    return software_list, md_lines
+
+
 def fetch_mitre_software():
-    """Tải và bóc tách danh mục Malware & Adversary Tools từ MITRE ATT&CK (https://attack.mitre.org/software/)."""
-    print("\n[4/4] 🛡️ Đang cào danh mục Software (Malware & Tools) từ MITRE ATT&CK...")
+    """Tải và bóc tách danh mục Malware & Tools từ MITRE ATT&CK (Ưu tiên GitHub STIX API, tự động fallback HTML)."""
+    print("\n[4/4] 🛡️ Đang tải danh mục Software (Malware & Tools) từ MITRE ATT&CK...")
+
+    # Cách 1: Tải trực tiếp từ nguồn chính thức GitHub STIX CTI (Không bị Cloudflare 503 chặn bot)
+    github_headers = {"User-Agent": "SecLM-SecurityAgent-Crawler/1.0"}
+    try:
+        print("  ↳ [Cách 1] Kết nối tới kho STIX chính thức của MITRE CTI trên GitHub...")
+        with httpx.Client(headers=github_headers, timeout=60.0, follow_redirects=True) as client:
+            resp = client.get(MITRE_STIX_URL)
+            if resp.status_code == 200:
+                stix_data = resp.json()
+                software_list, md_lines = parse_mitre_stix(stix_data)
+
+                json_file = RAW_DIR / "mitre_attack_software.json"
+                with open(json_file, "w", encoding="utf-8") as f:
+                    json.dump(software_list, f, ensure_ascii=False, indent=2)
+
+                md_file = RAW_DIR / "mitre_attack_software.md"
+                md_file.write_text("\n".join(md_lines), encoding="utf-8")
+
+                print(f"  ✅ Đã tải và trích xuất thành công {len(software_list)} mã độc & công cụ từ MITRE STIX!")
+                print(f"  📂 File JSON: {json_file}")
+                print(f"  📂 File Markdown: {md_file}")
+                return
+            else:
+                print(f"  ⚠️ HTTP {resp.status_code} khi tải STIX GitHub.")
+    except Exception as e:
+        print(f"  ⚠️ Không tải được qua GitHub STIX ({str(e)}), chuyển sang thử cào web HTML...")
+
+    # Cách 2: Cào web HTML (phòng khi người dùng dùng proxy/browser)
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     }
     try:
+        print(f"  ↳ [Cách 2] Đang gửi yêu cầu tới {MITRE_SOFTWARE_URL}...")
         with httpx.Client(headers=headers, timeout=30.0, follow_redirects=True) as client:
             resp = client.get(MITRE_SOFTWARE_URL)
             if resp.status_code == 200:
@@ -172,7 +252,6 @@ def fetch_mitre_software():
                     "# MITRE ATT&CK Software & Malware Catalog",
                     "",
                     "> Nguồn chính thức: [MITRE ATT&CK Software](https://attack.mitre.org/software/)",
-                    "> Mô tả: Danh mục các phần mềm độc hại (Malware) và công cụ tấn công (Adversary Tools) được ghi nhận trong ma trận MITRE ATT&CK.",
                     "",
                 ]
 
@@ -188,41 +267,37 @@ def fetch_mitre_software():
                         continue
 
                     full_url = f"https://attack.mitre.org{id_link}" if id_link.startswith("/") else (id_link or f"https://attack.mitre.org/software/{id_text}/")
-
-                    item = {
+                    software_list.append({
                         "id": id_text,
                         "name": name_text,
                         "aliases": aliases,
                         "url": full_url,
                         "description": desc
-                    }
-                    software_list.append(item)
+                    })
+                    md_lines.append(f"## {id_text} - {name_text}\n- **Mã định danh**: [{id_text}]({full_url})\n- **Tên**: {name_text}\n- **Mô tả**: {desc}\n")
 
-                    md_lines.append(f"## {id_text} - {name_text}")
-                    md_lines.append(f"- **Mã định danh**: [{id_text}]({full_url})")
-                    md_lines.append(f"- **Tên phần mềm**: {name_text}")
-                    if aliases and aliases != "-":
-                        md_lines.append(f"- **Tên gọi khác / Aliases**: {aliases}")
-                    md_lines.append(f"- **Nguồn tham chiếu**: [{name_text} on MITRE ATT&CK]({full_url})")
-                    md_lines.append(f"- **Mô tả hành vi**: {desc}")
-                    md_lines.append("")
-
-                # Lưu file JSON
                 json_file = RAW_DIR / "mitre_attack_software.json"
                 with open(json_file, "w", encoding="utf-8") as f:
                     json.dump(software_list, f, ensure_ascii=False, indent=2)
 
-                # Lưu file Markdown phục vụ chunking tối ưu
                 md_file = RAW_DIR / "mitre_attack_software.md"
                 md_file.write_text("\n".join(md_lines), encoding="utf-8")
 
-                print(f"  ✅ Đã trích xuất thành công {len(software_list)} mã độc & công cụ MITRE ATT&CK.")
-                print(f"  📂 File JSON: {json_file}")
-                print(f"  📂 File Markdown: {md_file}")
+                print(f"  ✅ Đã trích xuất thành công {len(software_list)} mã độc & công cụ từ HTML!")
+                return
+            elif resp.status_code == 503:
+                print(f"  ⚠️ HTTP 503 Service Unavailable: Trang web attack.mitre.org bật Cloudflare WAF chống Bot Scraping tự động.")
             else:
                 print(f"  ⚠️ HTTP {resp.status_code} khi tải {MITRE_SOFTWARE_URL}")
     except Exception as e:
-        print(f"  ❌ Lỗi tải MITRE ATT&CK Software: {str(e)}")
+        print(f"  ❌ Lỗi tải web HTML: {str(e)}")
+
+    # Kiểm tra fallback dữ liệu nội bộ
+    local_md = RAW_DIR / "mitre_attack_software.md"
+    if local_md.exists():
+        print(f"  💡 Đã có sẵn tệp danh mục MITRE ATT&CK ({local_md.name}) trong data/raw/.")
+        print(f"  👉 Bạn có thể nạp ngay vào RAG bằng lệnh: .venv/bin/python -m src.data_pipeline.processor")
+
 
 
 def main():
