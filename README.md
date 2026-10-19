@@ -8,7 +8,7 @@
 ![Tests](https://img.shields.io/badge/Tests-35%2F35%20Passing-brightgreen)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-**SecLM** là nền tảng Trí tuệ Nhân tạo Chuyên biệt cho **An toàn Thông tin Doanh nghiệp (Enterprise Defensive AI Security Copilot)**, được thiết kế và vận hành chuẩn mực theo **5 bước vòng đời AgentOps** (*Discover $\rightarrow$ Governance $\rightarrow$ Evaluation $\rightarrow$ CI/CD $\rightarrow$ Monitoring*).
+**SecLM** là nền tảng Trí tuệ Nhân tạo Chuyên biệt cho **An toàn Thông tin Doanh nghiệp (Enterprise Defensive AI Security Copilot)**, được thiết kế và vận hành chuẩn mực theo **5 bước vòng đời AgentOps** (*Discover :arrow_right: Governance :arrow_right: Evaluation :arrow_right: CI/CD :arrow_right: Monitoring*).
 
 Hệ thống được trang bị bộ công cụ bảo mật thực chiến: **Tra cứu CVE/CISA KEV**, **Quét tĩnh mã nguồn AST (SAST)**, **Kiểm tra mã độc qua Threat Intelligence (Hashes & IoCs)**, và **Cơ sở tri thức RAG đa tầng** từ OWASP, MITRE ATT&CK và PayloadsAllTheThings với tính năng trích xuất minh bạch nguồn tham chiếu có thể nhấp chuột được.
 
