@@ -5,7 +5,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
 ![Google GenAI](https://img.shields.io/badge/Gemini%20Flash%20Lite-SDK%20v2.0-8E75C2?logo=google&logoColor=white)
 ![AgentOps Quality Gate](https://img.shields.io/badge/AgentOps-Quality%20Gate%20Passed-success)
-![Tests](https://img.shields.io/badge/Tests-35%2F35%20Passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-41%2F41%20Passing-brightgreen)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 **SecLM** là nền tảng Trí tuệ Nhân tạo Chuyên biệt cho **An toàn Thông tin Doanh nghiệp (Enterprise Defensive AI Security Copilot)**, được thiết kế và vận hành chuẩn mực theo **5 bước vòng đời AgentOps** (*Discover :arrow_right: Governance :arrow_right: Evaluation :arrow_right: CI/CD :arrow_right: Monitoring*).
@@ -57,14 +57,14 @@ Dự án tuân thủ nghiêm ngặt 5 giai đoạn vận hành Agentic AI chuẩ
   ┌─────────────────┐                                 ┌─────────────────┐
   │  5. MONITORING  │ <────────────────────────────── │   4. CI / CD    │
   │ Metrics API/UI  │                                 │ GitHub Actions  │
-  │ Human Feedback  │                                 │ 35/35 Test Gate │
+  │ Human Feedback  │                                 │ 41/41 Test Gate │
   └─────────────────┘                                 └─────────────────┘
 ```
 
 1. **Discover & Prototype:** Bộ ReAct Loop tự trị sử dụng `gemini-3.1-flash-lite`, tích hợp cơ chế dự phòng đa tầng (Model Fallback) tự động chuyển model khi gặp quá tải hoặc lỗi mạng.
 2. **Develop & Tool Governance:** Hệ thống `ToolRegistry` tự động thanh tra OpenAPI schema, bắt buộc validate kiểu dữ liệu tham số đầu vào và ghi vết lỗi thực thi.
 3. **Agent Evaluation:** Bộ dữ liệu kiểm thử vàng `tests/eval_dataset.json` kết hợp cùng giám khảo `SecurityAgentJudge` tự động phát hiện ảo giác (Hallucination) và đối soát sự thật (Faithfulness).
-4. **Deploy via CI/CD:** Pipeline tự động `.github/workflows/agent_ci.yml` kiểm duyệt cú pháp, chạy data pipeline và vượt qua toàn bộ **35/35 unit tests** trước khi build Docker.
+4. **Deploy via CI/CD:** Pipeline tự động `.github/workflows/agent_ci.yml` kiểm duyệt cú pháp, chạy data pipeline và vượt qua toàn bộ **41/41 unit tests** trước khi build Docker.
 5. **Observability & Monitoring:** Theo dõi thời gian thực độ trễ trung bình, tỷ lệ gọi tool thành công qua `/api/v1/metrics`, giao diện Cyber UI và cơ chế thu thập phản hồi Human-in-the-loop `/api/v1/feedback`.
 
 ---
@@ -83,6 +83,8 @@ Dự án tuân thủ nghiêm ngặt 5 giai đoạn vận hành Agentic AI chuẩ
 ├── data/                        # KHO DỮ LIỆU TRI THỨC BẢO MẬT
 │   ├── raw/                     # Dữ liệu cào thô (OWASP, MITRE, PayloadsAllTheThings, CISA KEV)
 │   ├── processed/               # Dữ liệu đã làm sạch & cắt chunk (Vector DB chunks & Fine-tune jsonl)
+│   ├── harvested_datasets/      # Dữ liệu tự động thu thập từ Shadow Evaluation (SFT Golden & Review)
+│   ├── chat_sessions.db         # Bộ nhớ lịch sử chat SQLite (quản lý session & sliding window)
 │   ├── cwe_knowledge.json       # Cơ sở tri thức CWE & Threat Intelligence chuẩn hóa
 │   └── cwe_catalog.json         # Danh mục CWE MITRE cấu trúc
 │
@@ -91,11 +93,12 @@ Dự án tuân thủ nghiêm ngặt 5 giai đoạn vận hành Agentic AI chuẩ
 │   ├── parse_stix_bundle.py     # Parser chuyên dụng trích xuất STIX 2.1 từ mitre-attack/attack-stix-data
 │   └── scrape_webpage.py        # Web Scraper đa năng cào bài viết/advisory từ bất kỳ link web nào
 │
-├── tests/                       # HỆ THỐNG KIỂM THỬ CHẤT LƯỢNG (35 TESTS PASSING)
+├── tests/                       # HỆ THỐNG KIỂM THỬ CHẤT LƯỢNG (41 TESTS PASSING)
 │   ├── eval_dataset.json        # Golden Benchmark Dataset (Kịch bản an ninh thực chiến)
 │   ├── test_tools.py            # Test các công cụ tra cứu CVE, quét SAST, quét mã băm
 │   ├── test_data_pipeline.py    # Test tẩy rửa dữ liệu, khử trùng lặp (Deduplication) và bóc tách STIX
 │   ├── test_rag.py              # Test độ chính xác tìm kiếm RAG & trích xuất nguồn
+│   ├── test_memory_and_shadow.py # Test bộ nhớ lịch sử chat session & chấm điểm ngầm
 │   ├── test_agent.py            # Test luồng ReAct Engine và thực thi Function Calling
 │   ├── test_agent_graph.py      # Test máy trạng thái StateGraph
 │   ├── test_api.py              # Test các REST API & Server-Sent Events (SSE) streaming
@@ -106,11 +109,11 @@ Dự án tuân thủ nghiêm ngặt 5 giai đoạn vận hành Agentic AI chuẩ
     ├── config.py                # Cấu hình Pydantic Settings
     │
     ├── api/                     # TẦNG 1: REST API & STREAMING (routes, schemas, dependencies)
-    ├── agent/                   # TẦNG 2: BỘ NÃO AGENTIC REACT (core, graph, nodes, prompts, state)
+    ├── agent/                   # TẦNG 2: BỘ NÃO AGENTIC REACT (core, memory, graph, nodes, prompts, state)
     ├── tools/                   # TẦNG 3: TOOL GOVERNANCE (registry, cve_lookup, code_analyzer, hash_scanner)
     ├── rag/                     # TẦNG 4: HYBRID RAG RETRIEVAL (retriever, vector_store)
     ├── data_pipeline/           # BỘ NẠP & XỬ LÝ TRI THỨC (loaders, cleaner, chunker, processor)
-    └── evals/                   # TẦNG 5: OBSERVABILITY & METRICS (judge, metrics)
+    └── evals/                   # TẦNG 5: OBSERVABILITY & METRICS (judge, shadow, metrics)
 ```
 
 ---
@@ -239,13 +242,15 @@ uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 | `GET` | `/api/v1/health` | Kiểm tra trạng thái hoạt động của dịch vụ (Health check). |
 | `GET` | `/api/v1/tools` | Trả về danh sách OpenAPI Schemas của các công cụ đã được quản trị. |
 | `GET` | `/api/v1/metrics` | Lấy các chỉ số Observability: Độ trễ trung bình, tỷ lệ gọi tool thành công. |
-| `POST` | `/api/v1/agent/chat` | Phân tích an ninh đồng bộ (Trả về JSON response đầy đủ). |
+| `POST` | `/api/v1/agent/chat` | Phân tích an ninh đồng bộ (Trả về JSON response đầy đủ, kích hoạt Shadow Eval ngầm). |
 | `POST` | `/api/v1/agent/stream` | Stream suy luận thời gian thực qua Server-Sent Events (SSE). |
+| `GET` | `/api/v1/agent/session/{session_id}` | Xem lịch sử hội thoại chi tiết theo phiên session. |
+| `DELETE` | `/api/v1/agent/session/{session_id}` | Xóa trắng lịch sử hội thoại của phiên session tương ứng. |
 | `POST` | `/api/v1/feedback` | Thu thập phản hồi từ người dùng (Đánh giá chuẩn xác / Chưa hài lòng). |
 
 ---
 
-## 🧪 8. Kiểm thử Tự động & Quality Gate (35/35 Tests Passing)
+## 🧪 8. Kiểm thử Tự động & Quality Gate (41/41 Tests Passing)
 
 Hệ thống tích hợp bộ kiểm thử toàn diện bảo vệ chất lượng ở mọi tầng kiến trúc:
 
@@ -256,14 +261,15 @@ pytest -v --durations=10
 
 ```text
 ============================== test session starts ==============================
-tests/test_agent.py ..                                                   [  5%]
-tests/test_agent_graph.py ...                                            [ 14%]
-tests/test_api.py .....                                                  [ 28%]
-tests/test_data_pipeline.py ......                                       [ 45%]
-tests/test_evals.py ...                                                  [ 54%]
-tests/test_rag.py ........                                               [ 77%]
+tests/test_agent.py ..                                                   [  4%]
+tests/test_agent_graph.py ...                                            [ 12%]
+tests/test_api.py .....                                                  [ 24%]
+tests/test_data_pipeline.py ......                                       [ 39%]
+tests/test_evals.py ...                                                  [ 46%]
+tests/test_memory_and_shadow.py ......                                   [ 60%]
+tests/test_rag.py ........                                               [ 80%]
 tests/test_tools.py ........                                             [100%]
-============================== 35 passed in 2.02s ==============================
+============================== 41 passed in 1.86s ==============================
 ```
 
 ---

@@ -1,7 +1,7 @@
 """Core Agent Engine: ReAct loop, model fallback, and tool dispatching."""
 
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
@@ -9,6 +9,7 @@ from src.config import settings
 from src.tools.registry import registry
 from src.agent.prompts import SECLM_SYSTEM_PROMPT
 from src.evals.metrics import agent_metrics
+from src.agent.memory import session_memory
 import src.tools  # Tự động nạp toàn bộ các tools vào registry
 
 
@@ -54,12 +55,15 @@ class SecurityAgent:
                 continue
         raise last_error
 
-    def run(self, user_query: str) -> Dict[str, Any]:
-        """Execute autonomous security analysis for a user query."""
+    def run(self, user_query: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+        """Execute autonomous security analysis for a user query with optional session memory."""
         start_time = time.time()
-        contents: List[types.Content] = [
-            types.Content(role="user", parts=[types.Part.from_text(text=user_query)])
-        ]
+        if session_id:
+            contents: List[types.Content] = session_memory.get_gemini_contents(session_id, user_query)
+        else:
+            contents: List[types.Content] = [
+                types.Content(role="user", parts=[types.Part.from_text(text=user_query)])
+            ]
         
         tools_used = []
         
@@ -106,6 +110,9 @@ class SecurityAgent:
                 else:
                     duration = time.time() - start_time
                     agent_metrics.record_run(duration, tools_used, success=True)
+                    if session_id and response.text:
+                        session_memory.add_turn(session_id, "user", user_query)
+                        session_memory.add_turn(session_id, "model", response.text)
                     return {
                         "answer": response.text,
                         "tools_used": tools_used,

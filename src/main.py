@@ -186,6 +186,7 @@ HTML_CHAT_UI = """
                 <div class="metric-item">Active Tools: <strong id="m-tools">4</strong></div>
                 <div class="metric-item">Latency Avg: <strong id="m-latency">0.0s</strong></div>
                 <div class="metric-item">Tool Success: <strong id="m-accuracy">100%</strong></div>
+                <button class="tag-btn" onclick="startNewSession()" style="color: var(--accent); border-color: rgba(0,242,254,0.4); font-weight: 600;">➕ Phiên mới</button>
             </div>
         </header>
 
@@ -217,6 +218,27 @@ HTML_CHAT_UI = """
 
     <script>
         const queryInput = document.getElementById("query");
+        let currentSessionId = localStorage.getItem("seclm_session_id");
+        if (!currentSessionId) {
+            currentSessionId = "session_" + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem("seclm_session_id", currentSessionId);
+        }
+
+        async function startNewSession() {
+            try {
+                await fetch(`/api/v1/agent/session/${currentSessionId}`, { method: 'DELETE' });
+            } catch (e) {}
+            currentSessionId = "session_" + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem("seclm_session_id", currentSessionId);
+            const box = document.getElementById("chat-box");
+            box.innerHTML = `
+                <div class="message-row agent">
+                    <div class="bubble agent-bubble">
+                        ✨ <strong>Đã khởi tạo phiên làm việc mới!</strong> Ngữ cảnh trước đây đã được làm mới. Mời bạn nhập yêu cầu điều tra an ninh.
+                    </div>
+                </div>
+            `;
+        }
 
         function autoResizeTextarea() {
             queryInput.style.height = "auto";
@@ -316,7 +338,7 @@ HTML_CHAT_UI = """
                 const response = await fetch("/api/v1/agent/stream", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ query: query, session_id: "live-web-session" })
+                    body: JSON.stringify({ query: query, session_id: currentSessionId })
                 });
 
                 const reader = response.body.getReader();

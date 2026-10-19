@@ -36,6 +36,8 @@ venv.bak/
 # Logs and databases
 *.log
 logs/
+*.db
+*.sqlite3
 
 # Testing & Coverage
 .tox/
@@ -62,3 +64,5 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/harvested_datasets/*
+!data/harvested_datasets/.gitkeep

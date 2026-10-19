@@ -1,12 +1,14 @@
 import json
 import uuid
 import asyncio
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from src.api.schemas import ChatRequest, ChatResponse, FeedbackRequest, FeedbackResponse
 from src.agent.core import SecurityAgent
 from src.tools.registry import registry
 from src.evals.metrics import agent_metrics
+from src.evals.shadow import shadow_evaluate_and_harvest
+from src.agent.memory import session_memory
 
 router = APIRouter(prefix="/api/v1", tags=["SecLM Agent"])
 agent = SecurityAgent()
@@ -53,10 +55,24 @@ async def submit_feedback(fb: FeedbackRequest):
 
 
 @router.post("/agent/chat", response_model=ChatResponse)
-async def chat_with_agent(req: ChatRequest):
-    """Gọi Agent xử lý đồng bộ và trả về kết quả tổng hợp."""
+async def chat_with_agent(req: ChatRequest, background_tasks: BackgroundTasks):
+    """Gọi Agent xử lý đồng bộ và trả về kết quả tổng hợp với bộ nhớ đa lượt."""
     try:
-        result = agent.run(req.query)
+        try:
+            result = agent.run(req.query, session_id=req.session_id)
+        except TypeError:
+            result = agent.run(req.query)
+
+        # Kích hoạt tác vụ chấm điểm ngầm và thu hoạch dataset (0ms latency overhead)
+        background_tasks.add_task(
+            shadow_evaluate_and_harvest,
+            session_id=req.session_id,
+            user_query=req.query,
+            tools_used=result["tools_used"],
+            agent_answer=result["answer"],
+            latency_seconds=result.get("latency_seconds", 0.0)
+        )
+
         return ChatResponse(
             session_id=req.session_id,
             answer=result["answer"],
@@ -68,7 +84,7 @@ async def chat_with_agent(req: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Lỗi thực thi Agent: {str(e)}")
 
 
-async def sse_event_generator(query: str):
+async def sse_event_generator(query: str, session_id: str, background_tasks: BackgroundTasks):
     """Generator bắn sự kiện theo chuẩn Server-Sent Events (SSE)."""
     # Bước 1: Thông báo bắt đầu suy luận
     yield f"event: status\ndata: {json.dumps({'step': 'THINKING', 'message': 'Agent đang phân tích yêu cầu...'}, ensure_ascii=False)}\n\n"
@@ -76,7 +92,20 @@ async def sse_event_generator(query: str):
 
     # Bước 2: Chạy Agent trong thread pool để không khóa event loop
     try:
-        result = await asyncio.to_thread(agent.run, query)
+        try:
+            result = await asyncio.to_thread(agent.run, query, session_id)
+        except TypeError:
+            result = await asyncio.to_thread(agent.run, query)
+
+        # Kích hoạt chấm điểm ngầm và thu thập dataset
+        background_tasks.add_task(
+            shadow_evaluate_and_harvest,
+            session_id=session_id,
+            user_query=query,
+            tools_used=result["tools_used"],
+            agent_answer=result["answer"],
+            latency_seconds=result.get("latency_seconds", 0.0)
+        )
 
         # Bước 3: Nếu Agent có gọi Tool, bắn thông tin từng Tool ra stream
         for tool_log in result["tools_used"]:
@@ -97,10 +126,10 @@ async def sse_event_generator(query: str):
 
 
 @router.post("/agent/stream")
-async def stream_with_agent(req: ChatRequest):
-    """Endpoint Real-time Streaming qua giao thức SSE."""
+async def stream_with_agent(req: ChatRequest, background_tasks: BackgroundTasks):
+    """Endpoint Real-time Streaming qua giao thức SSE với lưu trữ session."""
     return StreamingResponse(
-        sse_event_generator(req.query),
+        sse_event_generator(req.query, req.session_id, background_tasks),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -108,3 +137,21 @@ async def stream_with_agent(req: ChatRequest):
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@router.get("/agent/session/{session_id}")
+async def get_chat_session_history(session_id: str):
+    """Lấy lịch sử đàm thoại của một session."""
+    history = session_memory.get_history(session_id)
+    return {
+        "session_id": session_id,
+        "total_messages": len(history),
+        "history": history
+    }
+
+
+@router.delete("/agent/session/{session_id}")
+async def clear_chat_session(session_id: str):
+    """Xóa lịch sử đàm thoại của một session để bắt đầu phiên mới."""
+    session_memory.clear_session(session_id)
+    return {"status": "success", "message": f"Đã xóa toàn bộ lịch sử của phiên {session_id}"}
