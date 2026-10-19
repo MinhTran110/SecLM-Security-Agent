@@ -1,6 +1,28 @@
-"""Recursive Semantic Character Chunking for Vector Databases."""
+"""Recursive Semantic Character Chunking for Vector Databases and Hybrid Search.
+
+Includes Security-Aware chunking to preserve code blocks and Markdown structures.
+"""
 
 from typing import List, Dict, Any
+
+
+def balance_code_fences(chunks: List[str]) -> List[str]:
+    """Ensure no chunk has dangling or unclosed markdown code fences."""
+    balanced = []
+    in_code_block = False
+    for chunk in chunks:
+        c = chunk
+        if in_code_block:
+            c = "```\n" + c
+
+        fence_count = c.count("```")
+        if fence_count % 2 != 0:
+            c = c + "\n```"
+            in_code_block = not in_code_block
+        else:
+            in_code_block = False
+        balanced.append(c.strip())
+    return [b for b in balanced if b]
 
 
 def split_text_recursive(
@@ -31,7 +53,7 @@ def split_text_recursive(
             end = min(start + chunk_size, len(text))
             chunks.append(text[start:end].strip())
             start += chunk_size - chunk_overlap
-        return chunks
+        return balance_code_fences(chunks)
 
     splits = text.split(chosen_sep)
     remaining_seps = separators[separators.index(chosen_sep) + 1:] if chosen_sep in separators else []
@@ -80,7 +102,7 @@ def split_text_recursive(
         if merged:
             chunks.append(merged)
 
-    return chunks
+    return balance_code_fences(chunks)
 
 
 def create_chunks_with_metadata(
