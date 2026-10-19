@@ -68,7 +68,15 @@ HTML_CHAT_UI = """
         .message-row.agent { align-self: flex-start; width: 100%; max-width: 100%; }
 
         .bubble { padding: 14px 18px; border-radius: 12px; font-size: 0.95rem; line-height: 1.6; position: relative; }
-        .user-bubble { background: #2563eb; color: #ffffff; border-bottom-right-radius: 2px; }
+        .user-bubble {
+            background: #2563eb;
+            color: #ffffff;
+            border-bottom-right-radius: 2px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            font-family: inherit;
+        }
         .agent-bubble { background: var(--bg-inner); border: 1px solid var(--border); border-bottom-left-radius: 2px; color: var(--text-main); }
 
         /* Collapsible tool traces */
@@ -102,10 +110,63 @@ HTML_CHAT_UI = """
         .tag-btn:hover { border-color: var(--accent); color: var(--text-main); background: var(--bg-inner); }
 
         /* Input Controls */
-        .input-bar { display: flex; gap: 10px; background: var(--bg-card); padding: 10px; border-radius: 10px; border: 1px solid var(--border); }
-        input { flex: 1; background: transparent; border: none; outline: none; color: white; font-size: 0.95rem; padding: 8px 12px; }
-        button#send-btn { background: var(--accent-grad); color: #000; border: none; border-radius: 8px; padding: 10px 22px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+        .input-bar {
+            display: flex;
+            gap: 12px;
+            background: var(--bg-card);
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            align-items: flex-end;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-bar:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(0, 242, 254, 0.15);
+        }
+        textarea#query {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-family: inherit;
+            line-height: 1.5;
+            padding: 6px 4px;
+            resize: none;
+            min-height: 24px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        textarea#query::placeholder { color: #64748b; }
+        .input-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-end;
+        }
+        .input-hint {
+            font-size: 0.7rem;
+            color: #64748b;
+            user-select: none;
+            padding-right: 2px;
+        }
+        button#send-btn {
+            background: var(--accent-grad);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            white-space: nowrap;
+            height: 36px;
+        }
         button#send-btn:hover { opacity: 0.9; }
+        button#send-btn:active { transform: scale(0.98); }
 
         /* Feedback controls */
         .feedback-row { display: flex; gap: 10px; margin-top: 8px; align-items: center; font-size: 0.8rem; color: var(--text-muted); }
@@ -146,14 +207,34 @@ HTML_CHAT_UI = """
         </div>
 
         <div class="input-bar">
-            <input type="text" id="query" placeholder="Nhập câu hỏi, mã CVE, đoạn mã nguồn, hoặc mã băm tệp tin..." onkeypress="if(event.key==='Enter') sendQuery()" />
-            <button id="send-btn" onclick="sendQuery()">Phân tích</button>
+            <textarea id="query" rows="1" placeholder="Nhập câu hỏi, mã CVE, đoạn mã nguồn, hoặc mã băm tệp tin... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)"></textarea>
+            <div class="input-actions">
+                <button id="send-btn" onclick="sendQuery()">Phân tích</button>
+                <span class="input-hint">Shift + Enter: xuống dòng</span>
+            </div>
         </div>
     </div>
 
     <script>
+        const queryInput = document.getElementById("query");
+
+        function autoResizeTextarea() {
+            queryInput.style.height = "auto";
+            queryInput.style.height = Math.min(queryInput.scrollHeight, 180) + "px";
+        }
+
+        queryInput.addEventListener("input", autoResizeTextarea);
+
+        queryInput.addEventListener("keydown", function(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendQuery();
+            }
+        });
+
         function applyTag(text) {
-            document.getElementById('query').value = text;
+            queryInput.value = text;
+            autoResizeTextarea();
             sendQuery();
         }
 
@@ -193,14 +274,18 @@ HTML_CHAT_UI = """
             const box = document.getElementById("chat-box");
             const query = input.value.trim();
             if (!query) return;
+            
             input.value = "";
+            input.style.height = "auto";
 
-            // User bubble
-            box.innerHTML += `
-                <div class="message-row user">
-                    <div class="bubble user-bubble">${query}</div>
-                </div>
-            `;
+            // User bubble - safely render multiline text without HTML corruption
+            const userRow = document.createElement("div");
+            userRow.className = "message-row user";
+            const userBubble = document.createElement("div");
+            userBubble.className = "bubble user-bubble";
+            userBubble.textContent = query;
+            userRow.appendChild(userBubble);
+            box.appendChild(userRow);
 
             // Agent wrapper
             const agentRow = document.createElement("div");
