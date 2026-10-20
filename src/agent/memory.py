@@ -78,6 +78,46 @@ class SessionMemoryManager:
         contents.append(types.Content(role="user", parts=[types.Part.from_text(text=current_query)]))
         return contents
 
+    def get_all_sessions(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Retrieve list of distinct sessions with their first query as title, count, and last activity."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 
+                    session_id,
+                    COUNT(id) as total_messages,
+                    MAX(timestamp) as last_updated,
+                    (
+                        SELECT content FROM chat_turns t2 
+                        WHERE t2.session_id = t1.session_id AND t2.role = 'user' 
+                        ORDER BY t2.id ASC LIMIT 1
+                    ) as first_query
+                FROM chat_turns t1
+                GROUP BY session_id
+                ORDER BY last_updated DESC
+                LIMIT ?
+                """,
+                (limit,)
+            )
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                session_id = r[0]
+                total_messages = r[1]
+                last_updated = r[2]
+                first_query = r[3] or "Cuộc trò chuyện mới"
+                title = first_query.strip().split("\n")[0][:45]
+                if len(first_query.strip().split("\n")[0]) > 45:
+                    title += "..."
+                results.append({
+                    "session_id": session_id,
+                    "title": title,
+                    "total_messages": total_messages,
+                    "last_updated": last_updated
+                })
+            return results
+
     def clear_session(self, session_id: str):
         """Delete all conversation turns for a session."""
         if not session_id:

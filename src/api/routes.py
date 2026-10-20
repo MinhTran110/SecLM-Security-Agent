@@ -85,44 +85,70 @@ async def chat_with_agent(req: ChatRequest, background_tasks: BackgroundTasks):
 
 
 async def sse_event_generator(query: str, session_id: str, background_tasks: BackgroundTasks):
-    """Generator bắn sự kiện theo chuẩn Server-Sent Events (SSE)."""
+    """Generator bắn sự kiện theo chuẩn Server-Sent Events (SSE) kèm Real-time Progress & Keep-alive."""
+    loop = asyncio.get_running_loop()
+    event_queue: asyncio.Queue = asyncio.Queue()
+
+    def on_progress(evt: dict):
+        loop.call_soon_threadsafe(event_queue.put_nowait, evt)
+
     # Bước 1: Thông báo bắt đầu suy luận
-    yield f"event: status\ndata: {json.dumps({'step': 'THINKING', 'message': 'Agent đang phân tích yêu cầu...'}, ensure_ascii=False)}\n\n"
-    await asyncio.sleep(0.05)
+    yield f"event: status\ndata: {json.dumps({'step': 'THINKING', 'message': 'Agent đang khởi động phân tích...'}, ensure_ascii=False)}\n\n"
 
-    # Bước 2: Chạy Agent trong thread pool để không khóa event loop
-    try:
+    # Bước 2: Chạy Agent trong thread pool và đẩy sự kiện tiến trình vào event_queue
+    async def run_agent_task():
         try:
-            result = await asyncio.to_thread(agent.run, query, session_id)
-        except TypeError:
-            result = await asyncio.to_thread(agent.run, query)
+            try:
+                res = await asyncio.to_thread(agent.run, query, session_id, on_progress)
+            except TypeError:
+                try:
+                    res = await asyncio.to_thread(agent.run, query, session_id)
+                except TypeError:
+                    res = await asyncio.to_thread(agent.run, query)
+            await event_queue.put({"event": "agent_result", "data": res})
+        except Exception as err:
+            await event_queue.put({"event": "error", "data": {"error": str(err)}})
 
-        # Kích hoạt chấm điểm ngầm và thu thập dataset
-        background_tasks.add_task(
-            shadow_evaluate_and_harvest,
-            session_id=session_id,
-            user_query=query,
-            tools_used=result["tools_used"],
-            agent_answer=result["answer"],
-            latency_seconds=result.get("latency_seconds", 0.0)
-        )
+    asyncio.create_task(run_agent_task())
 
-        # Bước 3: Nếu Agent có gọi Tool, bắn thông tin từng Tool ra stream
-        for tool_log in result["tools_used"]:
-            yield f"event: tool_call\ndata: {json.dumps(tool_log, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.05)
+    while True:
+        try:
+            # Chờ sự kiện hoặc gửi keep-alive ping mỗi 2.5s để chống rớt mạng/proxy timeout
+            item = await asyncio.wait_for(event_queue.get(), timeout=2.5)
+            evt_type = item.get("event")
+            evt_data = item.get("data")
 
-        # Bước 4: Stream câu trả lời cuối cùng
-        words = result["answer"].split(" ")
-        for i in range(0, len(words), 3):
-            chunk = " ".join(words[i:i+3]) + " "
-            yield f"event: token\ndata: {json.dumps({'token': chunk}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.02)
+            if evt_type == "status":
+                yield f"event: status\ndata: {json.dumps(evt_data, ensure_ascii=False)}\n\n"
+            elif evt_type == "tool_call":
+                yield f"event: tool_call\ndata: {json.dumps(evt_data, ensure_ascii=False)}\n\n"
+            elif evt_type == "error":
+                yield f"event: error\ndata: {json.dumps(evt_data, ensure_ascii=False)}\n\n"
+                break
+            elif evt_type == "agent_result":
+                result = evt_data
+                # Kích hoạt chấm điểm ngầm và thu thập dataset
+                background_tasks.add_task(
+                    shadow_evaluate_and_harvest,
+                    session_id=session_id,
+                    user_query=query,
+                    tools_used=result["tools_used"],
+                    agent_answer=result["answer"],
+                    latency_seconds=result.get("latency_seconds", 0.0)
+                )
 
-        # Bước 5: Báo hiệu hoàn tất
-        yield f"event: done\ndata: {json.dumps({'iterations': result['iterations'], 'latency': result.get('latency_seconds')})}\n\n"
-    except Exception as e:
-        yield f"event: error\ndata: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+                # Stream câu trả lời theo từng cụm từ (word tokens)
+                words = result["answer"].split(" ")
+                for i in range(0, len(words), 3):
+                    chunk = " ".join(words[i:i+3]) + " "
+                    yield f"event: token\ndata: {json.dumps({'token': chunk}, ensure_ascii=False)}\n\n"
+                    await asyncio.sleep(0.015)
+
+                yield f"event: done\ndata: {json.dumps({'iterations': result['iterations'], 'latency': result.get('latency_seconds')})}\n\n"
+                break
+        except asyncio.TimeoutError:
+            # Gửi comment keep-alive định kỳ giữ kết nối SSE luôn sống
+            yield ": keep-alive\n\n"
 
 
 @router.post("/agent/stream")
@@ -137,6 +163,16 @@ async def stream_with_agent(req: ChatRequest, background_tasks: BackgroundTasks)
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@router.get("/agent/sessions")
+async def list_chat_sessions():
+    """Lấy danh sách các phiên trò chuyện gần nhất phục vụ thanh Sidebar Lịch sử."""
+    sessions = session_memory.get_all_sessions(limit=30)
+    return {
+        "total": len(sessions),
+        "sessions": sessions
+    }
 
 
 @router.get("/agent/session/{session_id}")
@@ -155,3 +191,4 @@ async def clear_chat_session(session_id: str):
     """Xóa lịch sử đàm thoại của một session để bắt đầu phiên mới."""
     session_memory.clear_session(session_id)
     return {"status": "success", "message": f"Đã xóa toàn bộ lịch sử của phiên {session_id}"}
+

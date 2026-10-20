@@ -9,7 +9,7 @@ from src.api.routes import router
 app = FastAPI(
     title=settings.APP_NAME,
     description="Hệ thống AI Agent chuyên biệt về An toàn thông tin & Thẩm định mã nguồn",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 app.add_middleware(
@@ -35,6 +35,7 @@ HTML_CHAT_UI = """
     <style>
         :root {
             --bg-main: #090d16;
+            --bg-sidebar: #0b1120;
             --bg-card: #131b2e;
             --bg-inner: #1c2742;
             --border: #263554;
@@ -47,21 +48,217 @@ HTML_CHAT_UI = """
             --success: #10b981;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-main); color: var(--text-main); min-height: 100vh; padding: 24px; }
-        .container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; height: 92vh; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+        
+        /* Layout wrapper */
+        .app-layout {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar History */
+        .sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            transition: transform 0.25s ease;
+            z-index: 100;
+        }
+        .sidebar.collapsed {
+            display: none;
+        }
+        .sidebar-header {
+            padding: 16px 14px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .sidebar-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .new-chat-btn {
+            background: rgba(0, 242, 254, 0.1);
+            border: 1px solid rgba(0, 242, 254, 0.35);
+            color: var(--accent);
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .new-chat-btn:hover {
+            background: rgba(0, 242, 254, 0.2);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+        }
+        .session-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            transition: all 0.15s;
+            border: 1px solid transparent;
+            user-select: none;
+        }
+        .session-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+        .session-item.active {
+            background: rgba(0, 242, 254, 0.12);
+            color: var(--accent);
+            border-color: rgba(0, 242, 254, 0.3);
+            font-weight: 600;
+        }
+        .session-item .session-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 6px;
+        }
+        .session-item .session-count {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-right: 6px;
+        }
+        .session-item .del-btn {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: opacity 0.15s;
+            font-size: 0.85rem;
+        }
+        .session-item:hover .del-btn {
+            opacity: 1;
+        }
+        .session-item .del-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Main Container */
+        .container {
+            flex: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 16px 24px;
+        }
         
         /* Header & Telemetry */
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
-        .logo-area { display: flex; align-items: center; gap: 12px; }
-        .logo-area h1 { font-size: 1.4rem; background: var(--accent-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: -0.5px; }
-        .badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 999px; background: rgba(0, 242, 254, 0.15); color: var(--accent); border: 1px solid rgba(0, 242, 254, 0.3); font-weight: 600; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toggle-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .toggle-btn:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+        .logo-area h1 {
+            font-size: 1.35rem;
+            background: var(--accent-grad);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(0, 242, 254, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            font-weight: 600;
+        }
         
-        .metrics-bar { display: flex; gap: 16px; font-size: 0.85rem; color: var(--text-muted); }
-        .metric-item { background: var(--bg-card); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); }
+        .metrics-bar {
+            display: flex;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            align-items: center;
+        }
+        .metric-item {
+            background: var(--bg-card);
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
         .metric-item strong { color: var(--accent); }
 
         /* Chat box */
-        #chat-box { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+        #chat-box {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
         
         .message-row { display: flex; flex-direction: column; gap: 6px; max-width: 90%; }
         .message-row.user { align-self: flex-end; }
@@ -105,8 +302,8 @@ HTML_CHAT_UI = """
         .agent-bubble blockquote { border-left: 3px solid var(--accent); padding-left: 12px; margin: 10px 0; color: #94a3b8; font-style: italic; }
 
         /* Quick Suggestions */
-        .quick-tags { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
-        .tag-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+        .quick-tags { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+        .tag-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 11px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
         .tag-btn:hover { border-color: var(--accent); color: var(--text-main); background: var(--bg-inner); }
 
         /* Input Controls */
@@ -167,6 +364,7 @@ HTML_CHAT_UI = """
         }
         button#send-btn:hover { opacity: 0.9; }
         button#send-btn:active { transform: scale(0.98); }
+        button#send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Feedback controls */
         .feedback-row { display: flex; gap: 10px; margin-top: 8px; align-items: center; font-size: 0.8rem; color: var(--text-muted); }
@@ -175,69 +373,193 @@ HTML_CHAT_UI = """
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="logo-area">
-                <span style="font-size: 1.6rem;">🛡️</span>
-                <h1>SecLM Security Agent</h1>
-                <span class="badge">Production-Ready (v1.1)</span>
+    <div class="app-layout">
+        <!-- Sidebar Lịch sử Hội thoại -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <span>💬 Lịch sử Hội thoại</span>
+                </div>
+                <button class="new-chat-btn" onclick="createNewSession(true)">➕ Cuộc trò chuyện mới</button>
             </div>
-            <div class="metrics-bar" id="metrics-bar">
-                <div class="metric-item">Active Tools: <strong id="m-tools">4</strong></div>
-                <div class="metric-item">Latency Avg: <strong id="m-latency">0.0s</strong></div>
-                <div class="metric-item">Tool Success: <strong id="m-accuracy">100%</strong></div>
-                <button class="tag-btn" onclick="startNewSession()" style="color: var(--accent); border-color: rgba(0,242,254,0.4); font-weight: 600;">➕ Phiên mới</button>
+            <div class="session-list" id="session-list">
+                <!-- Danh sách phiên load từ API -->
             </div>
-        </header>
+        </aside>
 
-        <div id="chat-box">
-            <div class="message-row agent">
-                <div class="bubble agent-bubble">
-                    👋 <strong>Chào bạn! Tôi là SecLM</strong> — Chuyên gia AI về An toàn Thông tin & Thẩm định Mã nguồn.<br>
-                    Tôi được tích hợp bộ công cụ thực chiến: <strong>Tra cứu CVE</strong>, <strong>Quét tĩnh mã nguồn (SAST)</strong>, <strong>Kiểm tra mã độc qua mã băm</strong> và <strong>Tra cứu chuẩn CWE/OWASP</strong>.
+        <!-- Main Content -->
+        <main class="container">
+            <header>
+                <div class="logo-area">
+                    <button class="toggle-btn" onclick="toggleSidebar()" title="Đóng/Mở Sidebar">☰</button>
+                    <span style="font-size: 1.5rem;">🛡️</span>
+                    <h1>SecLM Security Agent</h1>
+                    <span class="badge">gemini-3.5-flash</span>
+                </div>
+                <div class="metrics-bar" id="metrics-bar">
+                    <div class="metric-item">Active Tools: <strong id="m-tools">4</strong></div>
+                    <div class="metric-item">Latency Avg: <strong id="m-latency">0.0s</strong></div>
+                    <div class="metric-item">Tool Success: <strong id="m-accuracy">100%</strong></div>
+                    <button class="tag-btn" onclick="createNewSession(true)" style="color: var(--accent); border-color: rgba(0,242,254,0.4); font-weight: 600;">➕ Phiên mới</button>
+                </div>
+            </header>
+
+            <div id="chat-box">
+                <!-- Messages dynamically loaded -->
+            </div>
+
+            <div class="quick-tags">
+                <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;">Thử nhanh:</span>
+                <button class="tag-btn" onclick="applyTag('Phân tích chi tiết lỗ hổng CVE-2024-5510 và cách vá')">🔍 Tra cứu CVE-2024-5510</button>
+                <button class="tag-btn" onclick="applyTag('Quét đoạn code này: def run(val): return eval(val)')">💻 Quét mã nguồn SAST</button>
+                <button class="tag-btn" onclick="applyTag('Kiểm tra mã băm 24d004a104d4d54034dbc29c2f81fb077b36724da6e00d20ef7413f7b7e3f57e')">🦠 Quét mã băm độc hại</button>
+                <button class="tag-btn" onclick="applyTag('Lỗ hổng SSRF là gì và quy tắc phòng thủ chuẩn?')">📚 Tri thức CWE/SSRF</button>
+            </div>
+
+            <div class="input-bar">
+                <textarea id="query" rows="1" placeholder="Nhập câu hỏi, mã CVE, đoạn mã nguồn, hoặc mã băm tệp tin... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)"></textarea>
+                <div class="input-actions">
+                    <button id="send-btn" onclick="sendQuery()">Phân tích</button>
+                    <span class="input-hint">Shift + Enter: xuống dòng</span>
                 </div>
             </div>
-        </div>
-
-        <div class="quick-tags">
-            <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;">Thử nhanh:</span>
-            <button class="tag-btn" onclick="applyTag('Phân tích chi tiết lỗ hổng CVE-2024-5510 và cách vá')">🔍 Tra cứu CVE-2024-5510</button>
-            <button class="tag-btn" onclick="applyTag('Quét đoạn code này: def run(val): return eval(val)')">💻 Quét mã nguồn SAST</button>
-            <button class="tag-btn" onclick="applyTag('Kiểm tra mã băm 24d004a104d4d54034dbc29c2f81fb077b36724da6e00d20ef7413f7b7e3f57e')">🦠 Quét mã băm độc hại</button>
-            <button class="tag-btn" onclick="applyTag('Lỗ hổng SSRF là gì và quy tắc phòng thủ chuẩn?')">📚 Tri thức CWE/SSRF</button>
-        </div>
-
-        <div class="input-bar">
-            <textarea id="query" rows="1" placeholder="Nhập câu hỏi, mã CVE, đoạn mã nguồn, hoặc mã băm tệp tin... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)"></textarea>
-            <div class="input-actions">
-                <button id="send-btn" onclick="sendQuery()">Phân tích</button>
-                <span class="input-hint">Shift + Enter: xuống dòng</span>
-            </div>
-        </div>
+        </main>
     </div>
 
     <script>
         const queryInput = document.getElementById("query");
+        const sendBtn = document.getElementById("send-btn");
+        const chatBox = document.getElementById("chat-box");
+        const sessionListEl = document.getElementById("session-list");
+        const sidebar = document.getElementById("sidebar");
+
         let currentSessionId = localStorage.getItem("seclm_session_id");
         if (!currentSessionId) {
             currentSessionId = "session_" + Math.random().toString(36).substring(2, 10);
             localStorage.setItem("seclm_session_id", currentSessionId);
         }
 
-        async function startNewSession() {
+        function toggleSidebar() {
+            sidebar.classList.toggle("collapsed");
+        }
+
+        const WELCOME_HTML = `
+            <div class="message-row agent">
+                <div class="bubble agent-bubble">
+                    👋 <strong>Chào bạn! Tôi là SecLM</strong> — Chuyên gia AI về An toàn Thông tin & Thẩm định Mã nguồn.<br>
+                    Tôi được tích hợp bộ công cụ thực chiến: <strong>Tra cứu CVE</strong>, <strong>Quét tĩnh mã nguồn (SAST)</strong>, <strong>Kiểm tra mã độc qua mã băm</strong> và <strong>Tra cứu chuẩn CWE/OWASP</strong>.
+                </div>
+            </div>
+        `;
+
+        function renderWelcomeMessage() {
+            chatBox.innerHTML = WELCOME_HTML;
+        }
+
+        async function loadSessionsList() {
             try {
-                await fetch(`/api/v1/agent/session/${currentSessionId}`, { method: 'DELETE' });
-            } catch (e) {}
+                const res = await fetch('/api/v1/agent/sessions');
+                if (!res.ok) return;
+                const data = await res.json();
+                sessionListEl.innerHTML = "";
+                
+                if (data.sessions.length === 0) {
+                    sessionListEl.innerHTML = `<div style="font-size:0.8rem; color:#64748b; padding:12px; text-align:center;">Chưa có hội thoại nào</div>`;
+                    return;
+                }
+
+                data.sessions.forEach(sess => {
+                    const item = document.createElement("div");
+                    item.className = "session-item" + (sess.session_id === currentSessionId ? " active" : "");
+                    item.onclick = () => switchSession(sess.session_id);
+                    item.innerHTML = `
+                        <span class="session-title" title="${sess.title}">🛡️ ${sess.title}</span>
+                        <span class="session-count">${sess.total_messages}</span>
+                        <button class="del-btn" title="Xóa phiên này" onclick="deleteSession('${sess.session_id}', event)">🗑️</button>
+                    `;
+                    sessionListEl.appendChild(item);
+                });
+            } catch (e) {
+                console.error("Lỗi nạp danh sách phiên:", e);
+            }
+        }
+
+        async function switchSession(sessionId) {
+            currentSessionId = sessionId;
+            localStorage.setItem("seclm_session_id", sessionId);
+            await loadSessionMessages(sessionId);
+            loadSessionsList();
+        }
+
+        function createNewSession(shouldClearUi = true) {
             currentSessionId = "session_" + Math.random().toString(36).substring(2, 10);
             localStorage.setItem("seclm_session_id", currentSessionId);
-            const box = document.getElementById("chat-box");
-            box.innerHTML = `
-                <div class="message-row agent">
-                    <div class="bubble agent-bubble">
-                        ✨ <strong>Đã khởi tạo phiên làm việc mới!</strong> Ngữ cảnh trước đây đã được làm mới. Mời bạn nhập yêu cầu điều tra an ninh.
+            if (shouldClearUi) {
+                chatBox.innerHTML = `
+                    <div class="message-row agent">
+                        <div class="bubble agent-bubble">
+                            ✨ <strong>Đã bắt đầu cuộc trò chuyện mới!</strong> Lịch sử phiên trước đã được lưu lại trong thanh Sidebar. Mời bạn nhập yêu cầu phân tích an ninh.
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
+            loadSessionsList();
+        }
+
+        async function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            if (!confirm("Bạn có chắc chắn muốn xóa phiên làm việc này khỏi lịch sử?")) return;
+            try {
+                await fetch(`/api/v1/agent/session/${sessionId}`, { method: 'DELETE' });
+                if (sessionId === currentSessionId) {
+                    createNewSession(true);
+                } else {
+                    loadSessionsList();
+                }
+            } catch (e) {
+                alert("Lỗi khi xóa phiên: " + e.message);
+            }
+        }
+
+        async function loadSessionMessages(sessionId) {
+            try {
+                const res = await fetch(`/api/v1/agent/session/${sessionId}`);
+                if (!res.ok) {
+                    renderWelcomeMessage();
+                    return;
+                }
+                const data = await res.json();
+                if (!data.history || data.history.length === 0) {
+                    renderWelcomeMessage();
+                    return;
+                }
+
+                chatBox.innerHTML = "";
+                data.history.forEach(msg => {
+                    const row = document.createElement("div");
+                    row.className = "message-row " + (msg.role === "user" ? "user" : "agent");
+                    const bubble = document.createElement("div");
+                    bubble.className = "bubble " + (msg.role === "user" ? "user-bubble" : "agent-bubble");
+                    
+                    if (msg.role === "user") {
+                        bubble.textContent = msg.content;
+                    } else {
+                        bubble.innerHTML = marked.parse(msg.content);
+                        bubble.querySelectorAll('pre code').forEach((el) => {
+                            hljs.highlightElement(el);
+                        });
+                        bubble.querySelectorAll('a').forEach(a => {
+                            a.setAttribute('target', '_blank');
+                            a.setAttribute('rel', 'noopener noreferrer');
+                        });
+                    }
+                    row.appendChild(bubble);
+                    chatBox.appendChild(row);
+                });
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (e) {
+                renderWelcomeMessage();
+            }
         }
 
         function autoResizeTextarea() {
@@ -292,22 +614,22 @@ HTML_CHAT_UI = """
         marked.use({ renderer: linkRenderer });
 
         async function sendQuery() {
-            const input = document.getElementById("query");
-            const box = document.getElementById("chat-box");
-            const query = input.value.trim();
+            const query = queryInput.value.trim();
             if (!query) return;
             
-            input.value = "";
-            input.style.height = "auto";
+            queryInput.value = "";
+            queryInput.style.height = "auto";
+            sendBtn.disabled = true;
+            sendBtn.innerText = "Đang xử lý...";
 
-            // User bubble - safely render multiline text without HTML corruption
+            // User bubble
             const userRow = document.createElement("div");
             userRow.className = "message-row user";
             const userBubble = document.createElement("div");
             userBubble.className = "bubble user-bubble";
             userBubble.textContent = query;
             userRow.appendChild(userBubble);
-            box.appendChild(userRow);
+            chatBox.appendChild(userRow);
 
             // Agent wrapper
             const agentRow = document.createElement("div");
@@ -326,9 +648,10 @@ HTML_CHAT_UI = """
 
             const bubble = document.createElement("div");
             bubble.className = "bubble agent-bubble";
+            bubble.innerHTML = "<em>SecLM đang suy luận...</em>";
             agentRow.appendChild(bubble);
-            box.appendChild(agentRow);
-            box.scrollTop = box.scrollHeight;
+            chatBox.appendChild(agentRow);
+            chatBox.scrollTop = chatBox.scrollHeight;
 
             let fullAnswer = "";
             const logBox = thoughtAccordion.querySelector("#thought-log");
@@ -341,25 +664,35 @@ HTML_CHAT_UI = """
                     body: JSON.stringify({ query: query, session_id: currentSessionId })
                 });
 
+                if (!response.ok) {
+                    throw new Error("HTTP " + response.status + ": Không thể kết nối tới server");
+                }
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder("utf-8");
+                let sseBuffer = "";
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    const chunk = decoder.decode(value, { stream: true });
-                    const events = chunk.split("\\n\\n");
+                    sseBuffer += decoder.decode(value, { stream: true });
+                    const events = sseBuffer.split("\\n\\n");
+                    sseBuffer = events.pop(); // keep trailing partial event
+
                     for (const evt of events) {
-                        if (!evt.trim()) continue;
+                        if (!evt.trim() || evt.startsWith(":")) continue; // ignore keep-alive
+                        
                         if (evt.includes("event: status")) {
                             const data = JSON.parse(evt.split("data: ")[1]);
                             statusText.innerText = data.message;
                             logBox.innerHTML += `<div>⚙️ [Trạng thái]: ${data.message}</div>`;
+                            logBox.scrollTop = logBox.scrollHeight;
                         } else if (evt.includes("event: tool_call")) {
                             const data = JSON.parse(evt.split("data: ")[1]);
                             statusText.innerText = `Kích hoạt tool: ${data.tool}`;
                             logBox.innerHTML += `<div>🔧 [Tool Call]: <strong>${data.tool}</strong>(${JSON.stringify(data.args)})</div>`;
                             logBox.innerHTML += `<div style="color: #6ee7b7;">↳ Kết quả: ${JSON.stringify(data.output).slice(0, 140)}...</div>`;
+                            logBox.scrollTop = logBox.scrollHeight;
                         } else if (evt.includes("event: token")) {
                             const data = JSON.parse(evt.split("data: ")[1]);
                             fullAnswer += data.token;
@@ -368,7 +701,12 @@ HTML_CHAT_UI = """
                                 a.setAttribute('target', '_blank');
                                 a.setAttribute('rel', 'noopener noreferrer');
                             });
-                            box.scrollTop = box.scrollHeight;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        } else if (evt.includes("event: error")) {
+                            const data = JSON.parse(evt.split("data: ")[1]);
+                            statusText.innerText = "Lỗi xử lý ⚠️";
+                            logBox.innerHTML += `<div style="color: #ef4444;">❌ [Lỗi]: ${data.error}</div>`;
+                            bubble.innerHTML = `<span style="color: #ef4444; font-weight: 500;">⚠️ Đã xảy ra sự cố trong quá trình phân tích: ${data.error}</span>`;
                         } else if (evt.includes("event: done")) {
                             statusText.innerText = "Hoàn tất thẩm định ✅";
                             logBox.innerHTML += `<div>✅ [Hoàn tất]</div>`;
@@ -387,18 +725,26 @@ HTML_CHAT_UI = """
                     a.setAttribute('rel', 'noopener noreferrer');
                 });
 
-                // Append feedback buttons
-                const fbDiv = document.createElement("div");
-                fbDiv.className = "feedback-row";
-                fbDiv.innerHTML = `
-                    <span>Đánh giá kết quả:</span>
-                    <button class="fb-btn" onclick="submitFb(true, this)">👍 Chuẩn xác</button>
-                    <button class="fb-btn" onclick="submitFb(false, this)">👎 Chưa hài lòng</button>
-                `;
-                agentRow.appendChild(fbDiv);
+                // Append feedback buttons if answer was generated
+                if (fullAnswer) {
+                    const fbDiv = document.createElement("div");
+                    fbDiv.className = "feedback-row";
+                    fbDiv.innerHTML = `
+                        <span>Đánh giá kết quả:</span>
+                        <button class="fb-btn" onclick="submitFb(true, this)">👍 Chuẩn xác</button>
+                        <button class="fb-btn" onclick="submitFb(false, this)">👎 Chưa hài lòng</button>
+                    `;
+                    agentRow.appendChild(fbDiv);
+                }
+
                 updateTelemetry();
+                loadSessionsList();
             } catch (err) {
-                bubble.innerText = "Đã xảy ra lỗi khi kết nối với Agent: " + err.message;
+                statusText.innerText = "Lỗi kết nối ❌";
+                bubble.innerHTML = `<span style="color: #ef4444;">Đã xảy ra lỗi kết nối với Agent: ${err.message}</span>`;
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerText = "Phân tích";
             }
         }
 
@@ -410,6 +756,12 @@ HTML_CHAT_UI = """
             });
             btn.parentElement.innerHTML = '<span style="color: var(--accent);">✓ Cảm ơn đánh giá của bạn!</span>';
         }
+
+        // Initialize on load
+        window.addEventListener("DOMContentLoaded", () => {
+            loadSessionsList();
+            loadSessionMessages(currentSessionId);
+        });
     </script>
 </body>
 </html>

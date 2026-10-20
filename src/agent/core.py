@@ -19,14 +19,13 @@ class SecurityAgent:
     def __init__(self, model_name: str = None):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         selected_model = model_name or settings.DEFAULT_MODEL
-        # Danh sách model dự phòng ưu tiên theo thứ tự
+        # Danh sách model dự phòng ưu tiên theo tốc độ và độ ổn định thực tế
         self.fallback_models = [
             selected_model,
-            "gemini-3.1-flash-lite",
-            "gemini-3.7-flash",
-            "gemini-3.6-flash",
             "gemini-3.5-flash",
-            "gemini-3.8-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3-flash-preview",
+            "gemini-3.1-flash-lite",
         ]
         # Loại bỏ trùng lặp giữ nguyên thứ tự
         self.fallback_models = list(dict.fromkeys(self.fallback_models))
@@ -46,17 +45,22 @@ class SecurityAgent:
                 last_error = e
                 print(f"[SecLM Cảnh báo] Model '{model}' trả về lỗi API (mã {e.code}). Chuyển sang model kế tiếp...")
                 if e.code in [503, 429]:
-                    time.sleep(1.0)
+                    time.sleep(0.5)
                 continue
             except Exception as e:
                 last_error = e
                 print(f"[SecLM Lỗi mạng/Hệ thống] Model '{model}' gặp sự cố: {str(e)}. Đang thử model dự phòng...")
-                time.sleep(0.5)
+                time.sleep(0.3)
                 continue
         raise last_error
 
-    def run(self, user_query: str, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """Execute autonomous security analysis for a user query with optional session memory."""
+    def run(
+        self,
+        user_query: str,
+        session_id: Optional[str] = None,
+        on_progress: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """Execute autonomous security analysis for a user query with optional session memory and real-time progress."""
         start_time = time.time()
         if session_id:
             contents: List[types.Content] = session_memory.get_gemini_contents(session_id, user_query)
@@ -77,6 +81,18 @@ class SecurityAgent:
         success = True
         try:
             for iteration in range(self.max_iterations):
+                if on_progress:
+                    try:
+                        on_progress({
+                            "event": "status",
+                            "data": {
+                                "step": "THINKING",
+                                "message": f"Agent đang suy luận (Vòng {iteration + 1}/{self.max_iterations})..."
+                            }
+                        })
+                    except Exception:
+                        pass
+
                 response = self._call_llm_with_fallback(contents=contents, config=config)
 
                 if response.function_calls:
@@ -92,12 +108,19 @@ class SecurityAgent:
                         except Exception as e:
                             tool_output = {"error": str(e), "status": "FAILED"}
 
-                        tools_used.append({
+                        tool_entry = {
                             "iteration": iteration + 1,
                             "tool": tool_name,
                             "args": tool_args,
                             "output": tool_output
-                        })
+                        }
+                        tools_used.append(tool_entry)
+
+                        if on_progress:
+                            try:
+                                on_progress({"event": "tool_call", "data": tool_entry})
+                            except Exception:
+                                pass
 
                         tool_response_parts.append(
                             types.Part.from_function_response(

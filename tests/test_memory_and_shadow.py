@@ -156,5 +156,10 @@ def test_api_session_endpoints():
     assert get_res2.status_code == 200
     assert get_res2.json()["total_messages"] == 2
 
+    # 4b. List all sessions endpoint
+    list_res = client.get("/api/v1/agent/sessions")
+    assert list_res.status_code == 200
+    assert any(s["session_id"] == sess_id for s in list_res.json()["sessions"])
+
     # 5. Clean up
     client.delete(f"/api/v1/agent/session/{sess_id}")

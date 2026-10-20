@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     APP_NAME: str = Field(default="SecLM Security Agent", description="Tên ứng dụng")
     GEMINI_API_KEY: str = Field(..., description="API Key từ Google AI Studio")
     ENVIRONMENT: str = Field(default="development", description="development / production")
-    DEFAULT_MODEL: str = Field(default="gemini-3.1-flash-lite", description="Mô hình LLM chính")
+    DEFAULT_MODEL: str = Field(default="gemini-3.5-flash", description="Mô hình LLM chính")
     TEMPERATURE: float = Field(default=0.0, ge=0.0, le=1.0, description="Độ ngẫu nhiên (bảo mật dùng 0.0)")
     MAX_ITERATIONS: int = Field(default=5, ge=1, le=15, description="Số vòng lặp tối đa của Agent")
     NVD_API_TIMEOUT: int = Field(default=10, description="Timeout khi gọi API ngoài (giây)")
