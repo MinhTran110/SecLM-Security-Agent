@@ -26,14 +26,20 @@ class KeyRotationManager:
             raw_ex = getattr(settings, "EXCLUDED_KEY_SUFFIXES", "0ujA,xqhg")
             self.excluded_suffixes = [s.strip() for s in raw_ex.split(",") if s.strip()]
 
-        # 2. Parse candidate API keys
+        # 2. Parse candidate API keys (Tự động kết hợp GEMINI_API_KEY chính và các GEMINI_API_KEYS phụ)
         raw_keys = api_keys
         if raw_keys is None:
+            raw_keys = []
+            if getattr(settings, "GEMINI_API_KEY", ""):
+                raw_keys.append(settings.GEMINI_API_KEY.strip().strip('"').strip("'"))
             config_keys = getattr(settings, "GEMINI_API_KEYS", "")
             if config_keys:
-                raw_keys = [k.strip() for k in config_keys.split(",") if k.strip()]
-            else:
-                raw_keys = [settings.GEMINI_API_KEY] if settings.GEMINI_API_KEY else []
+                import re
+                split_keys = re.split(r'[,;\n]+', config_keys)
+                for k in split_keys:
+                    k_clean = k.strip().strip('"').strip("'")
+                    if k_clean and k_clean not in raw_keys:
+                        raw_keys.append(k_clean)
 
         # 3. Filter out excluded keys (e.g., OpenClaw keys)
         self._keys: List[str] = []
