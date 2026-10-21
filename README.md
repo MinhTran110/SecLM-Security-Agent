@@ -5,7 +5,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
 ![Google GenAI](https://img.shields.io/badge/Gemini%20Flash%20Lite-SDK%20v2.0-8E75C2?logo=google&logoColor=white)
 ![AgentOps Quality Gate](https://img.shields.io/badge/AgentOps-Quality%20Gate%20Passed-success)
-![Tests](https://img.shields.io/badge/Tests-41%2F41%20Passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-46%2F46%20Passing-brightgreen)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 **SecLM** là nền tảng Trí tuệ Nhân tạo Chuyên biệt cho **An toàn Thông tin Doanh nghiệp (Enterprise Defensive AI Security Copilot)**, được thiết kế và vận hành chuẩn mực theo **5 bước vòng đời AgentOps** (*Discover :arrow_right: Governance :arrow_right: Evaluation :arrow_right: CI/CD :arrow_right: Monitoring*).
@@ -250,7 +250,7 @@ uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
-## 🧪 8. Kiểm thử Tự động & Quality Gate (41/41 Tests Passing)
+## 🧪 8. Kiểm thử Tự động & Quality Gate (46/46 Tests Passing)
 
 Hệ thống tích hợp bộ kiểm thử toàn diện bảo vệ chất lượng ở mọi tầng kiến trúc:
 
@@ -262,14 +262,15 @@ pytest -v --durations=10
 ```text
 ============================== test session starts ==============================
 tests/test_agent.py ..                                                   [  4%]
-tests/test_agent_graph.py ...                                            [ 12%]
-tests/test_api.py .....                                                  [ 24%]
-tests/test_data_pipeline.py ......                                       [ 39%]
-tests/test_evals.py ...                                                  [ 46%]
-tests/test_memory_and_shadow.py ......                                   [ 60%]
-tests/test_rag.py ........                                               [ 80%]
+tests/test_agent_graph.py ...                                            [ 10%]
+tests/test_api.py .....                                                  [ 21%]
+tests/test_data_pipeline.py ......                                       [ 34%]
+tests/test_evals.py ...                                                  [ 41%]
+tests/test_key_rotator.py .....                                          [ 52%]
+tests/test_memory_and_shadow.py ......                                   [ 65%]
+tests/test_rag.py ........                                               [ 82%]
 tests/test_tools.py ........                                             [100%]
-============================== 41 passed in 1.86s ==============================
+============================== 46 passed in 1.91s ==============================
 ```
 
 ---

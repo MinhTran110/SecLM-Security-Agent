@@ -10,6 +10,7 @@ from src.tools.registry import registry
 from src.agent.prompts import SECLM_SYSTEM_PROMPT
 from src.evals.metrics import agent_metrics
 from src.agent.memory import session_memory
+from src.agent.key_rotator import key_rotator
 import src.tools  # Tự động nạp toàn bộ các tools vào registry
 
 
@@ -34,24 +35,38 @@ class SecurityAgent:
     def _call_llm_with_fallback(self, contents: List[types.Content], config: types.GenerateContentConfig):
         last_error = None
         for model in self.fallback_models:
-            try:
-                print(f"[SecLM Agent] Đang gọi model: {model}...")
-                return self.client.models.generate_content(
-                    model=model,
-                    contents=contents,
-                    config=config
-                )
-            except APIError as e:
-                last_error = e
-                print(f"[SecLM Cảnh báo] Model '{model}' trả về lỗi API (mã {e.code}). Chuyển sang model kế tiếp...")
-                if e.code in [503, 429]:
-                    time.sleep(0.5)
-                continue
-            except Exception as e:
-                last_error = e
-                print(f"[SecLM Lỗi mạng/Hệ thống] Model '{model}' gặp sự cố: {str(e)}. Đang thử model dự phòng...")
-                time.sleep(0.3)
-                continue
+            max_key_retries = max(1, len(key_rotator._keys))
+            for key_attempt in range(max_key_retries):
+                try:
+                    client, current_key = key_rotator.get_client()
+                except Exception:
+                    client, current_key = self.client, settings.GEMINI_API_KEY
+
+                try:
+                    masked = key_rotator.mask_key(current_key)
+                    print(f"[SecLM Agent] Đang gọi model: {model} (Key: {masked})...")
+                    return client.models.generate_content(
+                        model=model,
+                        contents=contents,
+                        config=config
+                    )
+                except APIError as e:
+                    last_error = e
+                    if e.code == 429:
+                        key_rotator.mark_exhausted(current_key, reason="429 Rate Limit / Quota Exceeded")
+                        print(f"[SecLM Rotator] Key '{key_rotator.mask_key(current_key)}' chạm hạn mức 429. Đang chuyển sang key tiếp theo...")
+                        continue  # Thử ngay key tiếp theo với cùng model
+                    elif e.code == 503:
+                        print(f"[SecLM Cảnh báo] Model '{model}' quá tải 503. Chuyển sang model kế tiếp...")
+                        break  # Chuyển sang model dự phòng tiếp theo
+                    else:
+                        print(f"[SecLM Cảnh báo] Model '{model}' trả về lỗi API (mã {e.code}). Chuyển sang model kế tiếp...")
+                        break
+                except Exception as e:
+                    last_error = e
+                    print(f"[SecLM Lỗi mạng/Hệ thống] Model '{model}' gặp sự cố: {str(e)}. Đang thử model dự phòng...")
+                    time.sleep(0.3)
+                    break
         raise last_error
 
     def run(

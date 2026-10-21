@@ -9,6 +9,7 @@ from src.tools.registry import registry
 from src.evals.metrics import agent_metrics
 from src.evals.shadow import shadow_evaluate_and_harvest
 from src.agent.memory import session_memory
+from src.agent.key_rotator import key_rotator
 
 router = APIRouter(prefix="/api/v1", tags=["SecLM Agent"])
 agent = SecurityAgent()
@@ -33,6 +34,7 @@ async def get_metrics():
     return {
         "metrics": agent_metrics.summary(),
         "governance": registry.get_governance_report(),
+        "key_rotation": key_rotator.get_stats(),
     }
 
 

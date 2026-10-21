@@ -100,7 +100,13 @@ class SecurityAgentJudge:
         """
 
         try:
-            response = self.client.models.generate_content(
+            try:
+                from src.agent.key_rotator import key_rotator
+                judge_client, _ = key_rotator.get_client()
+            except Exception:
+                judge_client = self.client
+
+            response = judge_client.models.generate_content(
                 model=self.model_name,
                 contents=eval_prompt,
                 config=types.GenerateContentConfig(

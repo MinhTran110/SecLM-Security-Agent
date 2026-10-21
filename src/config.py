@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     MAX_ITERATIONS: int = Field(default=5, ge=1, le=15, description="Số vòng lặp tối đa của Agent")
     NVD_API_TIMEOUT: int = Field(default=10, description="Timeout khi gọi API ngoài (giây)")
     TOOL_TIMEOUT_SECONDS: float = Field(default=5.0, description="Timeout tối đa cho mỗi tool (giây)")
+    GEMINI_API_KEYS: str = Field(default="", description="Danh sách nhiều API Key phân cách bởi dấu phẩy")
+    EXCLUDED_KEY_SUFFIXES: str = Field(default="0ujA,xqhg", description="Đuôi các API Key cần loại trừ (ví dụ OpenClaw)")
+    KEY_COOLDOWN_SECONDS: float = Field(default=60.0, description="Thời gian phạt cooldown (giây) khi key gặp 429")
 
     model_config = SettingsConfigDict(
         env_file=".env",
