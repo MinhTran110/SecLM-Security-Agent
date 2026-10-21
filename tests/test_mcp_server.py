@@ -1,6 +1,14 @@
 import pytest
-from src.mcp_server import mcp_server
+from src.mcp_server import mcp_server, fastmcp_server, FastMCP
 from src.tools.mcp_client import MCPClient
+
+
+def test_fastmcp_export():
+    """Kiểm tra export FastMCP và fastmcp_server đúng chuẩn."""
+    assert FastMCP is not None
+    assert fastmcp_server is not None
+    assert fastmcp_server.name == "SecLM-Security-Agent"
+    assert fastmcp_server is mcp_server
 
 
 @pytest.mark.asyncio

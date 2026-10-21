@@ -8,27 +8,31 @@ import sys
 import argparse
 from typing import List, Dict, Any, Optional
 
+# Hỗ trợ cả 2 chuẩn gọi: FastMCP (MCP v1) và MCPServer (MCP v2 chuẩn hóa mới nhất)
 try:
-    from mcp.server import MCPServer
+    from mcp.server import MCPServer as FastMCP
 except ImportError:
     try:
-        from mcp.server.mcpserver import MCPServer
+        from mcp.server.fastmcp import FastMCP
     except ImportError:
         raise ImportError("Thư viện 'mcp' chưa được cài đặt. Hãy cài bằng 'pip install mcp'.")
+
+MCPServer = FastMCP
 
 from src.tools.registry import registry
 from src.config import settings
 from src.agent.prompts import SECLM_SYSTEM_PROMPT
 import src.tools  # Tự động nạp toàn bộ tools vào registry
 
-# 1. Khởi tạo MCP Server chuẩn hóa
-mcp_server = MCPServer(
+# 1. Khởi tạo FastMCP Server chuẩn hóa
+fastmcp_server = FastMCP(
     name="SecLM-Security-Agent",
     instructions=(
-        "SecLM Enterprise Security MCP Server cung cấp kho công cụ an ninh mạng, "
+        "SecLM Enterprise Security FastMCP Server cung cấp kho công cụ an ninh mạng, "
         "rà soát mã nguồn, phân tích CVE, quét cổng mạng và phát hiện bất thường kết nối."
     ),
 )
+mcp_server = fastmcp_server  # Giữ alias mcp_server để tương thích 100%
 
 
 # =========================================================================
